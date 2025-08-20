@@ -20,51 +20,51 @@ project-root/
 │   │    └── TECHNICAL_INSIGHT_DOC_TITLE.md
 │   ├── engineering_efficiency/     # Best practices and tooling guides
 │   │    └── ENGINEERING_EFFICIENCY_DOC_TITLE.md
-│   └── progress_trackings/
-│        ├─── M1_MILESTONE_NAME_1/
-│        │     ├─── M1_MILESTONE_NAME_1.md
-│        │     ├─── M1_E1_EPIC_NAME_1/
-│        │     │     ├─── M1_E1_EPIC_NAME_1.md
-│        │     │     ├─── M1_E1_I1_ITERATION_NAME_1/
-│        │     │     │    ├─── M1_E1_I1_TECH_DESIGN.md
-│        │     │     │    ├─── M1_E1_I1_TEST_PLAN.md
-│        │     │     │    └─── M1_E1_I1_BACKLOGS.md
-│        │     │     └─── M1_E1_I2_ITERATION_NAME_2/
-│        │     │          ├─── M1_E1_I2_TECH_DESIGN.md
-│        │     │          ├─── M1_E1_I2_TEST_PLAN.md
-│        │     │          └─── M1_E1_I2_BACKLOGS.md
-│        │     └─── M1_E2_EPIC_NAME_2/
-│        │           ├─── M1_E2_EPIC_NAME_2.md
-│        │           ├─── M1_E2_I1_ITERATION_NAME_1/
-│        │           │    ├─── M1_E2_I1_TECH_DESIGN.md
-│        │           │    ├─── M1_E2_I1_TEST_PLAN.md
-│        │           │    └─── M1_E2_I1_BACKLOGS.md
-│        │           └─── M1_E2_I2_ITERATION_NAME_2/
-│        │                ├─── M1_E2_I2_TECH_DESIGN.md
-│        │                ├─── M1_E2_I2_TEST_PLAN.md
-│        │                └─── M1_E2_I2_BACKLOGS.md
-│        └─── M2_MILESTONE_NAME_2/
-│              ├─── M2_MILESTONE_NAME_2.md
-│              ├─── M2_E1_EPIC_NAME_1/
-│              │     ├─── M2_E1_EPIC_NAME_1.md
-│              │     ├─── M2_E1_I1_ITERATION_NAME_1/
-│              │     │    ├─── M2_E1_I1_TECH_DESIGN.md
-│              │     │    ├─── M2_E1_I1_TEST_PLAN.md
-│              │     │    └─── M2_E1_I1_BACKLOGS.md
-│              │     └─── M2_E1_I2_ITERATION_NAME_2/
-│              │          ├─── M2_E1_I2_TECH_DESIGN.md
-│              │          ├─── M2_E1_I2_TEST_PLAN.md
-│              │          └─── M2_E1_I2_BACKLOGS.md
-│              └─── M2_E2_EPIC_NAME_2/
-│                    ├─── M2_E2_EPIC_NAME_2.md
-│                    ├─── M2_E2_I1_ITERATION_NAME_1/
-│                    │    ├─── M2_E2_I1_TECH_DESIGN.md
-│                    │    ├─── M2_E2_I1_TEST_PLAN.md
-│                    │    └─── M2_E2_I1_BACKLOGS.md
-│                    └─── M2_E2_I2_ITERATION_NAME_2/
-│                         ├─── M2_E2_I2_TECH_DESIGN.md
-│                         ├─── M2_E2_I2_TEST_PLAN.md
-│                         └─── M2_E2_I2_BACKLOGS.md
+│   └── progress_trackings/         # Project progress trackings
+│        ├─── M1_MILESTONE_NAME_1/                       # Milestone 1 folder
+│        │     ├─── M1_MILESTONE_NAME_1.md               # Milestone 1 description
+│        │     ├─── M1_E1_EPIC_NAME_1/                   # Milestone 1 epic 1 folder
+│        │     │     ├─── M1_E1_EPIC_NAME_1.md           # Milestone 1 epic 1 description
+│        │     │     ├─── M1_E1_I1_ITERATION_NAME_1/     # Milestone 1 epic 1 iteration 1 folder
+│        │     │     │    ├─── M1_E1_I1_TECH_DESIGN.md   # Milestone 1 epic 1 iteration 1 tech design doc
+│        │     │     │    ├─── M1_E1_I1_TEST_PLAN.md     # Milestone 1 epic 1 iteration 1 test plan doc
+│        │     │     │    └─── M1_E1_I1_BACKLOGS.md      # Milestone 1 epic 1 iteration 1 backlogs doc
+│        │     │     └─── M1_E1_I2_ITERATION_NAME_2/     # Milestone 1 epic 1 iteration 2 folder
+│        │     │          ├─── M1_E1_I2_TECH_DESIGN.md   # Milestone 1 epic 1 iteration 2 tech design doc
+│        │     │          ├─── M1_E1_I2_TEST_PLAN.md     # Milestone 1 epic 1 iteration 2 test plan doc
+│        │     │          └─── M1_E1_I2_BACKLOGS.md      # Milestone 1 epic 1 iteration 2 backlogs doc
+│        │     └─── M1_E2_EPIC_NAME_2/                   # Milestone 1 epic 2 folder
+│        │           ├─── M1_E2_EPIC_NAME_2.md           # Milestone 1 epic 2 description
+│        │           ├─── M1_E2_I1_ITERATION_NAME_1/     # Milestone 1 epic 2 iteration 1 folder
+│        │           │    ├─── M1_E2_I1_TECH_DESIGN.md   # Milestone 1 epic 2 iteration 1 tech design doc
+│        │           │    ├─── M1_E2_I1_TEST_PLAN.md     # Milestone 1 epic 2 iteration 1 test plan doc
+│        │           │    └─── M1_E2_I1_BACKLOGS.md      # Milestone 1 epic 2 iteration 1 backlogs doc
+│        │           └─── M1_E2_I2_ITERATION_NAME_2/     # Milestone 1 epic 2 iteration 2 folder
+│        │                ├─── M1_E2_I2_TECH_DESIGN.md   # Milestone 1 epic 2 iteration 2 tech design doc
+│        │                ├─── M1_E2_I2_TEST_PLAN.md     # Milestone 1 epic 2 iteration 2 test plan doc
+│        │                └─── M1_E2_I2_BACKLOGS.md      # Milestone 1 epic 2 iteration 2 backlogs doc
+│        └─── M2_MILESTONE_NAME_2/                       # Milestone 2 folder
+│              ├─── M2_MILESTONE_NAME_2.md               # Milestone 2 description
+│              ├─── M2_E1_EPIC_NAME_1/                   # Milestone 2 epic 1 folder
+│              │     ├─── M2_E1_EPIC_NAME_1.md           # Milestone 2 epic 1 description
+│              │     ├─── M2_E1_I1_ITERATION_NAME_1/     # Milestone 2 epic 1 iteration 1 folder
+│              │     │    ├─── M2_E1_I1_TECH_DESIGN.md   # Milestone 2 epic 1 iteration 1 tech design doc
+│              │     │    ├─── M2_E1_I1_TEST_PLAN.md     # Milestone 2 epic 1 iteration 1 test plan doc
+│              │     │    └─── M2_E1_I1_BACKLOGS.md      # Milestone 2 epic 1 iteration 1 backlogs doc
+│              │     └─── M2_E1_I2_ITERATION_NAME_2/     # Milestone 2 epic 1 iteration 2 folder
+│              │          ├─── M2_E1_I2_TECH_DESIGN.md   # Milestone 2 epic 1 iteration 2 tech design doc
+│              │          ├─── M2_E1_I2_TEST_PLAN.md     # Milestone 2 epic 1 iteration 2 test plan doc
+│              │          └─── M2_E1_I2_BACKLOGS.md      # Milestone 2 epic 1 iteration 2 backlogs doc
+│              └─── M2_E2_EPIC_NAME_2/                   # Milestone 2 epic 2 folder
+│                    ├─── M2_E2_EPIC_NAME_2.md           # Milestone 2 epic 2 description
+│                    ├─── M2_E2_I1_ITERATION_NAME_1/     # Milestone 2 epic 2 iteration 1 folder
+│                    │    ├─── M2_E2_I1_TECH_DESIGN.md   # Milestone 2 epic 2 iteration 1 tech design doc
+│                    │    ├─── M2_E2_I1_TEST_PLAN.md     # Milestone 2 epic 2 iteration 1 test plan doc
+│                    │    └─── M2_E2_I1_BACKLOGS.md      # Milestone 2 epic 2 iteration 1 backlogs doc
+│                    └─── M2_E2_I2_ITERATION_NAME_2/     # Milestone 2 epic 2 iteration 2 folder
+│                         ├─── M2_E2_I2_TECH_DESIGN.md   # Milestone 2 epic 2 iteration 2 tech design doc
+│                         ├─── M2_E2_I2_TEST_PLAN.md     # Milestone 2 epic 2 iteration 2 test plan doc
+│                         └─── M2_E2_I2_BACKLOGS.md      # Milestone 2 epic 2 iteration 2 backlogs doc
 │
 ├── [python_component_name]/        # Python component
 │   ├── Cargo.toml
@@ -86,7 +86,7 @@ project-root/
 │   ├── docs/                       # C/C++ component documentations
 │   │   └── design/                 # C/C++ component tech designs
 │   ├── include/                    # C/C++ component headers
-│   │   └── [modules]/              # C/C++ component mobulde public headers
+│   │   └── [modules]/              # C/C++ component module public headers
 │   ├── src/                        # C/C++ component sources
 │   │   └── [modules]/              # C/C++ component module sources
 │   └── tests/                      # C/C++ component tests
@@ -121,7 +121,8 @@ Deprecated documents shall be renamed with a `[DEPRECATED]` prefix.
 **Rules for maintaining the project structure:**
 
 1. **MUST place project-level docs in the /docs/ directory and component-level docs in the {component}/docs directory** - Use appropriate subdirectories
-2. **NEVER commit compiled binaries** - Add to .gitignore  
+2. **MUST place all the progress tracking documents in the /docs/progress_trackings directory** - Use appropriate subdirectories
+3. **NEVER commit compiled binaries** - Add to .gitignore  
 
 ## MANDATORY: Components
 
