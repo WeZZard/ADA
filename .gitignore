@@ -1,0 +1,281 @@
+# ===========================
+# Rust
+# ===========================
+# Build artifacts
+/target/
+**/target/
+Cargo.lock
+
+# Backup files
+**/*.rs.bk
+*.pdb
+
+# MSVC Windows builds
+*.pdb
+*.exe
+*.dll
+*.exp
+*.lib
+
+# ===========================
+# C/C++
+# ===========================
+# Build directories
+/build/
+**/build/
+/cmake-build-*/
+/out/
+
+# Object files
+*.o
+*.ko
+*.obj
+*.elf
+
+# Precompiled Headers
+*.gch
+*.pch
+
+# Libraries
+*.a
+*.la
+*.lo
+*.so
+*.so.*
+*.dylib
+*.dll
+
+# Executables
+*.exe
+*.out
+*.app
+
+# Debug files
+*.dSYM/
+*.su
+*.idb
+*.pdb
+
+# Coverage files
+*.gcda
+*.gcno
+*.gcov
+*.profraw
+*.profdata
+
+# ===========================
+# Python
+# ===========================
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Distribution / packaging
+.Python
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# Virtual environments
+venv/
+ENV/
+env/
+.venv
+
+# Maturin artifacts
+*.whl
+
+# PyInstaller
+*.manifest
+*.spec
+
+# Unit test / coverage reports
+htmlcov/
+.tox/
+.coverage
+.coverage.*
+.cache
+nosetests.xml
+coverage.xml
+*.cover
+.hypothesis/
+.pytest_cache/
+
+# Jupyter Notebook
+.ipynb_checkpoints
+
+# mypy
+.mypy_cache/
+.dmypy.json
+dmypy.json
+
+# ===========================
+# Frida/Native Development
+# ===========================
+# Frida artifacts
+frida-core/
+*.frida
+
+# Shared memory files
+*.shm
+
+# Core dumps
+core
+core.*
+vgcore.*
+
+# ===========================
+# IDE and Editor
+# ===========================
+# VSCode
+.vscode/
+*.code-workspace
+
+# IntelliJ/CLion
+.idea/
+*.iml
+*.iws
+*.ipr
+cmake-build-*/
+
+# Vim
+*.swp
+*.swo
+*~
+.*.swp
+.*.swo
+
+# Emacs
+*~
+\#*\#
+.\#*
+
+# Sublime Text
+*.sublime-project
+*.sublime-workspace
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+._*
+
+# Windows
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+
+# ===========================
+# Documentation
+# ===========================
+# Generated docs
+/docs/_build/
+/docs/html/
+*.pdf
+
+# Doxygen
+/html/
+/latex/
+
+# ===========================
+# Logs and Traces
+# ===========================
+*.log
+*.trace
+*.atf
+/traces/
+/logs/
+
+# ===========================
+# Temporary Files
+# ===========================
+*.tmp
+*.temp
+*.bak
+*.backup
+*.old
+.tmp/
+
+# ===========================
+# Security
+# ===========================
+# Private keys
+*.pem
+*.key
+*.p12
+*.pfx
+
+# Environment variables
+.env
+.env.local
+.env.*.local
+
+# ===========================
+# Project Specific
+# ===========================
+# ADA trace files
+*.bin
+events.bin
+trace.json
+/atf_output/
+
+# Test fixtures output
+**/tests/fixtures/output/
+
+# Benchmark results
+/bench_results/
+*.bench
+
+# Performance profiling
+perf.data
+perf.data.old
+flamegraph.svg
+
+# Flight recorder windows
+/flight_recorder_data/
+
+# Symbol caches
+*.symbols
+/symbol_cache/
+
+# DWARF/dSYM data (when not needed)
+# Uncomment if you don't want to track debug symbols
+# *.dSYM/
+# *.dwarf
+
+# Build configuration (keep defaults)
+# Uncomment to ignore custom configs
+# /config.local.toml
+# /.cargo/config.toml
+
+# Generated protobuf files (if applicable)
+*.pb.go
+*_pb2.py
+*.pb.h
+*.pb.cc
+
+# CMake exports
+compile_commands.json
+
+# Dependency directories (if using vendoring)
+/vendor/
+/third_party/
+
+# Lock files for CI/CD (optional - uncomment if needed)
+# Cargo.lock
+# poetry.lock
+# package-lock.json
