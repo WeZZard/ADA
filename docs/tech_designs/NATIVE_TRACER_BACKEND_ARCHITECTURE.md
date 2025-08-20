@@ -1,4 +1,4 @@
-# Native Tracer Architecture Design
+# Native Tracer Backend Architecture Design
 
 **Component**: Tracer Native  
 **Author**: Claude Code  
@@ -7,7 +7,7 @@
 
 ## Executive Summary
 
-The Native Tracer is a high-performance, low-overhead dynamic instrumentation system built on Frida framework. It implements a two-lane flight recorder architecture for capturing function calls with minimal impact on target process performance. The system uses lock-free per-thread SPSC rings and shared memory IPC for zero-copy event transfer.
+The Native Tracer Backend is a high-performance, low-overhead dynamic instrumentation system built on Frida framework. It implements a two-lane flight recorder architecture for capturing function calls with minimal impact on target process performance. The system uses lock-free per-thread SPSC rings and shared memory IPC for zero-copy event transfer.
 
 ## Table of Contents
 
@@ -327,30 +327,30 @@ stateDiagram-v2
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
-│                     Index Lane (Always On)                   │
+│                     Index Lane (Always On)                  │
 ├─────────────────────────────────────────────────────────────┤
-│ Ring Buffer Header (64 bytes)                                │
-│ ┌──────────┬──────────┬──────────┬──────────┬────────────┐ │
-│ │ Magic    │ Version  │ Capacity │ Write Ptr│ Read Ptr   │ │
-│ │ 0xADA0   │ 1        │ 1M events│ 0x1234   │ 0x1000     │ │
-│ └──────────┴──────────┴──────────┴──────────┴────────────┘ │
-│                                                               │
-│ Event Buffer (32 * 1M = 32MB)                                │
+│ Ring Buffer Header (64 bytes)                               │
+│ ┌──────────┬──────────┬──────────┬──────────┬────────────┐  │
+│ │ Magic    │ Version  │ Capacity │ Write Ptr│ Read Ptr   │  │
+│ │ 0xADA0   │ 1        │ 1M events│ 0x1234   │ 0x1000     │  │
+│ └──────────┴──────────┴──────────┴──────────┴────────────┘  │
+│                                                             │
+│ Event Buffer (32 * 1M = 32MB)                               │
 │ ┌─────────────────────────────────────────────────────────┐ │
 │ │ Event 0: timestamp, function_id, thread_id, event_kind  │ │
 │ ├─────────────────────────────────────────────────────────┤ │
 │ │ Event 1: timestamp, function_id, thread_id, event_kind  │ │
 │ ├─────────────────────────────────────────────────────────┤ │
-│ │ ...                                                      │ │
+│ │ ...                                                     │ │
 │ └─────────────────────────────────────────────────────────┘ │
 └─────────────────────────────────────────────────────────────┘
 
 ┌─────────────────────────────────────────────────────────────┐
-│                   Detail Lane (Windowed)                     │
+│                   Detail Lane (Windowed)                    │
 ├─────────────────────────────────────────────────────────────┤
-│ Ring Buffer Header (64 bytes)                                │
-│                                                               │
-│ Event Buffer (512 * 64K = 32MB)                              │
+│ Ring Buffer Header (64 bytes)                               │
+│                                                             │
+│ Event Buffer (512 * 64K = 32MB)                             │
 │ ┌─────────────────────────────────────────────────────────┐ │
 │ │ Event 0: Full context including registers, stack        │ │
 │ ├─────────────────────────────────────────────────────────┤ │
@@ -364,17 +364,17 @@ stateDiagram-v2
 ```
 ThreadRegistry Layout (Shared Memory)
 ┌──────────────────────────────────────────────────────┐
-│ Header (64 bytes)                                     │
+│ Header (64 bytes)                                    │
 ├──────────────────────────────────────────────────────┤
 │ Thread Slot 0: ThreadInfo + SPSC Ring                │
-│   ├─ thread_id: 0x1234                              │
-│   ├─ status: ACTIVE                                 │
-│   ├─ ring_offset: 0x1000                           │
-│   └─ ring_size: 4096                               │
+│   ├─ thread_id: 0x1234                               │
+│   ├─ status: ACTIVE                                  │
+│   ├─ ring_offset: 0x1000                             │
+│   └─ ring_size: 4096                                 │
 ├──────────────────────────────────────────────────────┤
 │ Thread Slot 1: ThreadInfo + SPSC Ring                │
 ├──────────────────────────────────────────────────────┤
-│ ...                                                   │
+│ ...                                                  │
 ├──────────────────────────────────────────────────────┤
 │ Thread Slot 63: ThreadInfo + SPSC Ring               │
 └──────────────────────────────────────────────────────┘
@@ -573,9 +573,9 @@ graph TB
 
 ### Phase 1: Core Stability (Current)
 
-- [x] Basic hook installation
-- [x] Two-lane buffer implementation
-- [x] Platform abstraction layer
+- [ ] Basic hook installation
+- [ ] Two-lane buffer implementation
+- [ ] Platform abstraction layer
 - [ ] Complete test coverage
 - [ ] Performance benchmarks
 
