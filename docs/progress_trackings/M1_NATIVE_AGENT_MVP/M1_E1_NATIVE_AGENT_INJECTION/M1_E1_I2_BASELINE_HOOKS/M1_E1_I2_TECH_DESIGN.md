@@ -10,5 +10,12 @@ Install a deterministic set of hooks from the native agent and emit index events
   - Emit `IndexEvent` on enter/leave; capture minimal ABI registers and optional 128B stack window (guarded)
 - Keep small set in MVP; reserve full coverage to a later epic.
 
+## Shared Memory
+- Open SHM via `shared_memory_open_unique(role, pid, session_id)` using ids provided by loader.
+- Fail fast if ids mismatch or SHM open fails; surface clear error via controller.
+
+## References
+- docs/tech_designs/SHARED_MEMORY_IPC_MECHANISM.md
+
 ## Out of Scope
 - Dynamic module tracking; symbol table scanning; key-symbol lane.
