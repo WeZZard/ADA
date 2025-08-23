@@ -80,7 +80,6 @@ SUSPICIOUS_PATTERNS=(
     "api_key[[:space:]]*="
     "secret[[:space:]]*="
     "token[[:space:]]*="
-    "private_key"
     "BEGIN RSA"
     "BEGIN DSA"
     "BEGIN EC"

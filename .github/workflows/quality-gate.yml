@@ -1,0 +1,254 @@
+name: Quality Gate CI
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch:
+    inputs:
+      coverage_mode:
+        description: 'Coverage mode (score-only, incremental, full)'
+        required: false
+        default: 'full'
+        type: choice
+        options:
+          - score-only
+          - incremental
+          - full
+
+env:
+  CARGO_TERM_COLOR: always
+  RUSTFLAGS: -C instrument-coverage
+  LLVM_PROFILE_FILE: coverage-%p-%m.profraw
+
+jobs:
+  quality-gate:
+    name: Quality Gate - ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+        include:
+          - os: ubuntu-latest
+            llvm_version: 17
+            install_cmd: |
+              sudo apt-get update
+              sudo apt-get install -y clang-17 llvm-17 llvm-17-dev
+              echo "/usr/lib/llvm-17/bin" >> $GITHUB_PATH
+          - os: macos-latest
+            llvm_version: latest
+            install_cmd: |
+              brew install llvm
+              echo "/opt/homebrew/opt/llvm/bin" >> $GITHUB_PATH
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0  # Full history for coverage delta analysis
+
+    - name: Install LLVM and Clang
+      run: ${{ matrix.install_cmd }}
+
+    - name: Setup Rust toolchain
+      uses: dtolnay/rust-toolchain@stable
+      with:
+        components: llvm-tools-preview
+
+    - name: Install cargo-llvm-cov
+      run: cargo install cargo-llvm-cov
+
+    - name: Setup Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.11'
+        cache: 'pip'
+
+    - name: Install Python dependencies
+      run: |
+        pip install pytest pytest-cov maturin
+
+    - name: Initialize third-party dependencies
+      run: |
+        chmod +x utils/init_third_parties.sh
+        ./utils/init_third_parties.sh
+
+    - name: Determine coverage mode
+      id: coverage_mode
+      run: |
+        if [[ "${{ github.event_name }}" == "pull_request" ]]; then
+          echo "mode=incremental" >> $GITHUB_OUTPUT
+        elif [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+          echo "mode=${{ inputs.coverage_mode }}" >> $GITHUB_OUTPUT
+        else
+          echo "mode=full" >> $GITHUB_OUTPUT
+        fi
+
+    - name: Run quality gate checks
+      id: quality_gate
+      run: |
+        chmod +x utils/metrics/integration_quality.sh
+        ./utils/metrics/integration_quality.sh ${{ steps.coverage_mode.outputs.mode }} 2>&1 | tee quality_gate.log
+        
+        # Extract metrics for summary
+        INTEGRATION_SCORE=$(grep "INTEGRATION SCORE:" quality_gate.log | grep -oE '[0-9]+/100' || echo "0/100")
+        RUST_COV=$(grep "^Rust:" quality_gate.log | grep -oE '[0-9.]+%' || echo "0%")
+        CPP_COV=$(grep "^C/C++:" quality_gate.log | grep -oE '[0-9.]+%' || echo "0%")
+        
+        echo "integration_score=${INTEGRATION_SCORE}" >> $GITHUB_OUTPUT
+        echo "rust_coverage=${RUST_COV}" >> $GITHUB_OUTPUT
+        echo "cpp_coverage=${CPP_COV}" >> $GITHUB_OUTPUT
+
+    - name: Upload coverage reports
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: coverage-reports-${{ matrix.os }}
+        path: |
+          target/coverage/reports/
+          target/coverage/*.txt
+          target/coverage/rust/lcov.info
+          target/coverage/cpp/lcov.info
+          quality_gate.log
+
+    - name: Upload coverage to Codecov
+      if: matrix.os == 'ubuntu-latest'
+      uses: codecov/codecov-action@v4
+      with:
+        files: ./target/coverage/rust/lcov.info,./target/coverage/cpp/lcov.info
+        flags: unittests,${{ matrix.os }}
+        name: codecov-${{ matrix.os }}
+        fail_ci_if_error: false
+        verbose: true
+        token: ${{ secrets.CODECOV_TOKEN }}
+
+    - name: Generate job summary
+      if: always()
+      run: |
+        cat >> $GITHUB_STEP_SUMMARY << EOF
+        ## 📊 Quality Gate Report - ${{ matrix.os }}
+        
+        ### Integration Score
+        **${{ steps.quality_gate.outputs.integration_score }}** (100/100 required)
+        
+        ### Coverage Metrics
+        | Language | Coverage |
+        |----------|----------|
+        | Rust     | ${{ steps.quality_gate.outputs.rust_coverage }} |
+        | C/C++    | ${{ steps.quality_gate.outputs.cpp_coverage }} |
+        
+        ### Quality Gate Status
+        EOF
+        
+        if [[ "${{ steps.quality_gate.outputs.integration_score }}" == "100/100" ]]; then
+          echo "✅ **PASSED** - All quality gates passed" >> $GITHUB_STEP_SUMMARY
+        else
+          echo "❌ **FAILED** - Quality gates did not pass" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "See the [quality gate log](quality_gate.log) for details." >> $GITHUB_STEP_SUMMARY
+        fi
+
+    - name: Comment PR with coverage
+      if: github.event_name == 'pull_request'
+      uses: actions/github-script@v7
+      with:
+        script: |
+          const fs = require('fs');
+          const coverage_summary = fs.readFileSync('target/coverage/reports/summary.txt', 'utf8');
+          
+          const comment = `## 🔍 Coverage Report
+          
+          <details>
+          <summary>Click to expand coverage details</summary>
+          
+          \`\`\`
+          ${coverage_summary}
+          \`\`\`
+          
+          </details>
+          
+          **Integration Score**: ${{ steps.quality_gate.outputs.integration_score }}
+          **Rust Coverage**: ${{ steps.quality_gate.outputs.rust_coverage }}
+          **C/C++ Coverage**: ${{ steps.quality_gate.outputs.cpp_coverage }}
+          
+          ---
+          *Generated by Quality Gate CI*
+          `;
+          
+          // Find and update existing comment or create new one
+          const { data: comments } = await github.rest.issues.listComments({
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            issue_number: context.issue.number,
+          });
+          
+          const botComment = comments.find(comment => 
+            comment.user.type === 'Bot' && comment.body.includes('Coverage Report')
+          );
+          
+          if (botComment) {
+            await github.rest.issues.updateComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              comment_id: botComment.id,
+              body: comment,
+            });
+          } else {
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              body: comment,
+            });
+          }
+
+    - name: Enforce quality gate
+      if: steps.quality_gate.outputs.integration_score != '100/100'
+      run: |
+        echo "::error::Quality gate failed with score ${{ steps.quality_gate.outputs.integration_score }}"
+        exit 1
+
+  # Separate job for cross-platform validation
+  validate-scripts:
+    name: Validate Scripts
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Validate shell scripts
+      run: |
+        # Check all shell scripts for syntax errors
+        find . -name "*.sh" -type f | while read script; do
+          echo "Checking $script..."
+          bash -n "$script" || exit 1
+        done
+        
+        # Check hooks
+        for hook in utils/hooks/*; do
+          if [[ -f "$hook" && -x "$hook" ]]; then
+            echo "Checking hook $hook..."
+            bash -n "$hook" || exit 1
+          fi
+        done
+
+    - name: Check script permissions
+      run: |
+        # Ensure scripts are executable
+        SCRIPTS=(
+          "utils/init_third_parties.sh"
+          "utils/install_hooks.sh"
+          "utils/metrics/integration_quality.sh"
+          "utils/setup_coverage_env.sh"
+        )
+        
+        for script in "${SCRIPTS[@]}"; do
+          if [[ ! -x "$script" ]]; then
+            echo "::error::Script $script is not executable"
+            exit 1
+          fi
+        done

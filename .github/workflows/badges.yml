@@ -1,0 +1,124 @@
+name: Coverage Badges
+
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  update-badges:
+    name: Update Coverage Badges
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Setup environment
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y clang-17 llvm-17 llvm-17-dev
+        echo "/usr/lib/llvm-17/bin" >> $GITHUB_PATH
+        
+        cargo install cargo-llvm-cov
+        pip install pytest pytest-cov
+        
+        chmod +x utils/init_third_parties.sh
+        ./utils/init_third_parties.sh
+
+    - name: Generate coverage
+      run: |
+        ./utils/metrics/integration_quality.sh full > coverage.log 2>&1 || true
+        
+        # Extract coverage percentages
+        RUST_COV=$(grep "^Rust:" coverage.log | grep -oE '[0-9.]+' || echo "0")
+        CPP_COV=$(grep "^C/C++:" coverage.log | grep -oE '[0-9.]+' || echo "0")
+        INTEGRATION=$(grep "INTEGRATION SCORE:" coverage.log | grep -oE '[0-9]+' | head -1 || echo "0")
+        
+        echo "RUST_COV=${RUST_COV}" >> $GITHUB_ENV
+        echo "CPP_COV=${CPP_COV}" >> $GITHUB_ENV
+        echo "INTEGRATION=${INTEGRATION}" >> $GITHUB_ENV
+
+    - name: Create coverage badge JSONs
+      run: |
+        mkdir -p .github/badges
+        
+        # Determine colors based on coverage
+        rust_color="red"
+        if (( $(echo "$RUST_COV > 80" | bc -l) )); then
+          rust_color="brightgreen"
+        elif (( $(echo "$RUST_COV > 60" | bc -l) )); then
+          rust_color="yellow"
+        elif (( $(echo "$RUST_COV > 40" | bc -l) )); then
+          rust_color="orange"
+        fi
+        
+        cpp_color="red"
+        if (( $(echo "$CPP_COV > 80" | bc -l) )); then
+          cpp_color="brightgreen"
+        elif (( $(echo "$CPP_COV > 60" | bc -l) )); then
+          cpp_color="yellow"
+        elif (( $(echo "$CPP_COV > 40" | bc -l) )); then
+          cpp_color="orange"
+        fi
+        
+        integration_color="red"
+        if [[ "$INTEGRATION" == "100" ]]; then
+          integration_color="brightgreen"
+        elif (( $INTEGRATION > 80 )); then
+          integration_color="yellow"
+        fi
+        
+        # Create badge JSONs
+        cat > .github/badges/rust-coverage.json << EOF
+        {
+          "schemaVersion": 1,
+          "label": "Rust Coverage",
+          "message": "${RUST_COV}%",
+          "color": "${rust_color}"
+        }
+        EOF
+        
+        cat > .github/badges/cpp-coverage.json << EOF
+        {
+          "schemaVersion": 1,
+          "label": "C/C++ Coverage",
+          "message": "${CPP_COV}%",
+          "color": "${cpp_color}"
+        }
+        EOF
+        
+        cat > .github/badges/integration-score.json << EOF
+        {
+          "schemaVersion": 1,
+          "label": "Quality Gate",
+          "message": "${INTEGRATION}/100",
+          "color": "${integration_color}"
+        }
+        EOF
+
+    - name: Update README with badges
+      run: |
+        # Check if badges section exists in README
+        if ! grep -q "## Quality Metrics" README.md; then
+          cat >> README.md << 'EOF'
+        
+        ## Quality Metrics
+        
+        ![Quality Gate](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/${{ github.repository }}/main/.github/badges/integration-score.json)
+        ![Rust Coverage](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/${{ github.repository }}/main/.github/badges/rust-coverage.json)
+        ![C/C++ Coverage](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/${{ github.repository }}/main/.github/badges/cpp-coverage.json)
+        ![Build Status](https://github.com/${{ github.repository }}/workflows/Quality%20Gate%20CI/badge.svg)
+        
+        EOF
+        fi
+
+    - name: Commit badge updates
+      run: |
+        git config --local user.email "action@github.com"
+        git config --local user.name "GitHub Action"
+        git add .github/badges/*.json README.md || true
+        git commit -m "chore: Update coverage badges [skip ci]" || true
+        git push || true

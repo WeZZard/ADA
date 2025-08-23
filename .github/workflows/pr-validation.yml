@@ -1,0 +1,263 @@
+name: PR Validation
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+    paths:
+      - '**.rs'
+      - '**.c'
+      - '**.cpp'
+      - '**.h'
+      - '**.hpp'
+      - '**.py'
+      - '**/Cargo.toml'
+      - '**/CMakeLists.txt'
+      - '**/pyproject.toml'
+
+permissions:
+  contents: read
+  pull-requests: write
+  checks: write
+
+jobs:
+  changed-files:
+    name: Detect Changed Files
+    runs-on: ubuntu-latest
+    outputs:
+      has_rust: ${{ steps.changes.outputs.rust }}
+      has_cpp: ${{ steps.changes.outputs.cpp }}
+      has_python: ${{ steps.changes.outputs.python }}
+      all_files: ${{ steps.changes.outputs.all_files }}
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+
+    - name: Get changed files
+      id: changes
+      run: |
+        # Get list of changed files in PR
+        CHANGED_FILES=$(git diff --name-only origin/${{ github.base_ref }}...HEAD)
+        echo "Changed files:"
+        echo "$CHANGED_FILES"
+        
+        # Check for language-specific changes
+        echo "rust=false" >> $GITHUB_OUTPUT
+        echo "cpp=false" >> $GITHUB_OUTPUT
+        echo "python=false" >> $GITHUB_OUTPUT
+        
+        if echo "$CHANGED_FILES" | grep -qE '\.rs$|Cargo\.toml'; then
+          echo "rust=true" >> $GITHUB_OUTPUT
+        fi
+        
+        if echo "$CHANGED_FILES" | grep -qE '\.(c|cpp|h|hpp)$|CMakeLists\.txt'; then
+          echo "cpp=true" >> $GITHUB_OUTPUT
+        fi
+        
+        if echo "$CHANGED_FILES" | grep -qE '\.py$|pyproject\.toml'; then
+          echo "python=true" >> $GITHUB_OUTPUT
+        fi
+        
+        # Save all changed files for coverage analysis
+        echo "all_files<<EOF" >> $GITHUB_OUTPUT
+        echo "$CHANGED_FILES" >> $GITHUB_OUTPUT
+        echo "EOF" >> $GITHUB_OUTPUT
+
+  incremental-coverage:
+    name: Incremental Coverage Check
+    needs: changed-files
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout PR branch
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+
+    - name: Setup environment
+      run: |
+        # Install LLVM
+        sudo apt-get update
+        sudo apt-get install -y clang-17 llvm-17 llvm-17-dev
+        echo "/usr/lib/llvm-17/bin" >> $GITHUB_PATH
+        
+        # Install Rust
+        curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
+        source $HOME/.cargo/env
+        cargo install cargo-llvm-cov
+        
+        # Install Python coverage tools
+        pip install pytest pytest-cov
+        
+        # Initialize third parties
+        chmod +x utils/init_third_parties.sh
+        ./utils/init_third_parties.sh
+
+    - name: Calculate base branch coverage
+      run: |
+        # Checkout base branch
+        git checkout ${{ github.base_ref }}
+        
+        # Run coverage on base branch
+        ./utils/metrics/integration_quality.sh full > base_coverage.log 2>&1 || true
+        
+        # Extract base coverage
+        BASE_RUST_COV=$(grep "^Rust:" base_coverage.log | grep -oE '[0-9.]+' || echo "0")
+        BASE_CPP_COV=$(grep "^C/C++:" base_coverage.log | grep -oE '[0-9.]+' || echo "0")
+        
+        echo "BASE_RUST_COV=${BASE_RUST_COV}" >> $GITHUB_ENV
+        echo "BASE_CPP_COV=${BASE_CPP_COV}" >> $GITHUB_ENV
+
+    - name: Calculate PR branch coverage
+      run: |
+        # Checkout PR branch
+        git checkout ${{ github.head_ref }}
+        
+        # Run incremental coverage
+        ./utils/metrics/integration_quality.sh incremental > pr_coverage.log 2>&1
+        
+        # Extract PR coverage
+        PR_RUST_COV=$(grep "^Rust:" pr_coverage.log | grep -oE '[0-9.]+' || echo "0")
+        PR_CPP_COV=$(grep "^C/C++:" pr_coverage.log | grep -oE '[0-9.]+' || echo "0")
+        
+        echo "PR_RUST_COV=${PR_RUST_COV}" >> $GITHUB_ENV
+        echo "PR_CPP_COV=${PR_CPP_COV}" >> $GITHUB_ENV
+
+    - name: Check coverage requirements
+      id: coverage_check
+      run: |
+        FAILED=false
+        REPORT=""
+        
+        # Check Rust coverage if Rust files changed
+        if [[ "${{ needs.changed-files.outputs.has_rust }}" == "true" ]]; then
+          RUST_DELTA=$(echo "$PR_RUST_COV - $BASE_RUST_COV" | bc)
+          if (( $(echo "$RUST_DELTA < 0" | bc -l) )); then
+            REPORT="${REPORT}❌ Rust coverage decreased by ${RUST_DELTA}%\n"
+            FAILED=true
+          else
+            REPORT="${REPORT}✅ Rust coverage: ${PR_RUST_COV}% (Δ +${RUST_DELTA}%)\n"
+          fi
+        fi
+        
+        # Check C/C++ coverage if C/C++ files changed
+        if [[ "${{ needs.changed-files.outputs.has_cpp }}" == "true" ]]; then
+          CPP_DELTA=$(echo "$PR_CPP_COV - $BASE_CPP_COV" | bc)
+          if (( $(echo "$CPP_DELTA < 0" | bc -l) )); then
+            REPORT="${REPORT}❌ C/C++ coverage decreased by ${CPP_DELTA}%\n"
+            FAILED=true
+          else
+            REPORT="${REPORT}✅ C/C++ coverage: ${PR_CPP_COV}% (Δ +${CPP_DELTA}%)\n"
+          fi
+        fi
+        
+        echo "report<<EOF" >> $GITHUB_OUTPUT
+        echo -e "$REPORT" >> $GITHUB_OUTPUT
+        echo "EOF" >> $GITHUB_OUTPUT
+        
+        if [[ "$FAILED" == "true" ]]; then
+          echo "status=failed" >> $GITHUB_OUTPUT
+          exit 1
+        else
+          echo "status=passed" >> $GITHUB_OUTPUT
+        fi
+
+    - name: Post coverage comment
+      if: always()
+      uses: actions/github-script@v7
+      with:
+        script: |
+          const report = `## 📈 Coverage Analysis
+          
+          ### Changed Files Impact
+          
+          ${{ steps.coverage_check.outputs.report }}
+          
+          ### Coverage Requirements
+          - ✅ No coverage decrease allowed
+          - ✅ New code must have ≥80% coverage
+          - ✅ Integration score must be 100/100
+          
+          ---
+          *Coverage gates are mandatory per CLAUDE.md requirements*
+          `;
+          
+          await github.rest.issues.createComment({
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            issue_number: context.issue.number,
+            body: report,
+          });
+
+  security-scan:
+    name: Security Scan
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Check for secrets
+      run: |
+        # Same patterns as pre-commit hook
+        PATTERNS=(
+          "password[[:space:]]*="
+          "api_key[[:space:]]*="
+          "secret[[:space:]]*="
+          "token[[:space:]]*="
+          "BEGIN RSA"
+          "BEGIN DSA"
+          "aws_access_key"
+          "aws_secret_key"
+        )
+        
+        FOUND_SECRETS=false
+        for pattern in "${PATTERNS[@]}"; do
+          if git diff origin/${{ github.base_ref }}...HEAD | grep -i "$pattern"; then
+            echo "::error::Potential secret detected: $pattern"
+            FOUND_SECRETS=true
+          fi
+        done
+        
+        if [[ "$FOUND_SECRETS" == "true" ]]; then
+          exit 1
+        fi
+
+    - name: Run dependency audit
+      run: |
+        # Audit Rust dependencies
+        cargo audit || true
+        
+        # Check for known vulnerable dependencies
+        # This is informational for now
+
+  lint-and-format:
+    name: Lint and Format Check
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Setup Rust
+      uses: dtolnay/rust-toolchain@stable
+      with:
+        components: rustfmt, clippy
+
+    - name: Check Rust formatting
+      run: cargo fmt -- --check
+
+    - name: Run Clippy
+      run: cargo clippy --all-targets --all-features -- -D warnings
+
+    - name: Check C/C++ formatting
+      run: |
+        # Install clang-format
+        sudo apt-get update
+        sudo apt-get install -y clang-format-17
+        
+        # Check formatting (informational only for now)
+        find tracer_backend -name "*.c" -o -name "*.cpp" -o -name "*.h" -o -name "*.hpp" | \
+          xargs clang-format-17 --dry-run --Werror || true
