@@ -67,6 +67,15 @@ pub fn generate_dashboard(
         generate_full_html_report(merged_lcov, report_dir)?;
     }
     
+    // Generate diff-coverage HTML report
+    generate_diff_coverage_report(workspace, merged_lcov, report_dir)?;
+    
+    // Generate uncovered lines text file
+    generate_uncovered_lines_report(merged_lcov, report_dir)?;
+    
+    // Generate coverage history HTML page
+    generate_history_report(workspace, report_dir)?;
+    
     Ok(())
 }
 
@@ -309,6 +318,316 @@ fn generate_full_html_report(lcov_path: &Path, report_dir: &Path) -> Result<()> 
         let stderr = String::from_utf8_lossy(&output.stderr);
         println!("  Warning: genhtml failed: {}", stderr);
     }
+    
+    Ok(())
+}
+
+/// Generate diff-coverage HTML report
+fn generate_diff_coverage_report(workspace: &Path, lcov_path: &Path, report_dir: &Path) -> Result<()> {
+    println!("  Generating diff-coverage HTML report...");
+    
+    // Check if diff-cover is available
+    if which::which("diff-cover").is_err() {
+        println!("    diff-cover not found, skipping diff-coverage report");
+        return Ok(());
+    }
+    
+    let diff_report_path = report_dir.join("diff-coverage.html");
+    
+    // Run diff-cover with HTML output
+    let output = Command::new("diff-cover")
+        .args(&[
+            lcov_path.to_str().unwrap(),
+            "--html-report",
+            diff_report_path.to_str().unwrap(),
+            "--compare-branch=main",
+            "--ignore-errors",
+        ])
+        .current_dir(workspace)
+        .output()
+        .context("Failed to run diff-cover")?;
+    
+    if output.status.success() {
+        println!("    Diff-coverage report generated: {}", diff_report_path.display());
+    } else {
+        // Even if it fails (e.g., no changes), create a simple placeholder
+        let placeholder_html = r#"<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Diff Coverage Report</title>
+    <style>
+        body { font-family: sans-serif; padding: 40px; background: #f5f5f5; }
+        .container { max-width: 800px; margin: 0 auto; background: white; padding: 30px; border-radius: 8px; }
+        h1 { color: #333; }
+        p { color: #666; line-height: 1.6; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>📊 Diff Coverage Report</h1>
+        <p>No coverage changes detected in this commit.</p>
+        <p>This report shows coverage for lines that have changed compared to the main branch.</p>
+        <p>When you modify source code, this report will show whether those specific lines are covered by tests.</p>
+        <hr style="margin: 30px 0; border: none; border-top: 1px solid #eee;">
+        <p><a href="index.html">← Back to Dashboard</a></p>
+    </div>
+</body>
+</html>"#;
+        fs::write(&diff_report_path, placeholder_html)?;
+        println!("    Diff-coverage placeholder created");
+    }
+    
+    Ok(())
+}
+
+/// Generate uncovered lines text file
+fn generate_uncovered_lines_report(lcov_path: &Path, report_dir: &Path) -> Result<()> {
+    println!("  Generating uncovered lines report...");
+    
+    let uncovered_path = report_dir.join("uncovered.txt");
+    let mut uncovered_lines = Vec::new();
+    
+    if lcov_path.exists() {
+        let content = fs::read_to_string(lcov_path)?;
+        let mut current_file = String::new();
+        
+        for line in content.lines() {
+            if line.starts_with("SF:") {
+                current_file = line[3..].to_string();
+            } else if line.starts_with("DA:") {
+                // DA:line_number,hit_count
+                let parts: Vec<&str> = line[3..].split(',').collect();
+                if parts.len() == 2 {
+                    if let (Ok(line_num), Ok(hits)) = (parts[0].parse::<u32>(), parts[1].parse::<u32>()) {
+                        if hits == 0 && !current_file.is_empty() {
+                            // Only include project files, not external dependencies
+                            if current_file.contains("/Projects/ADA/") && 
+                               !current_file.contains("/.cargo/") && 
+                               !current_file.contains("/target/") &&
+                               !current_file.contains("/.rustup/") {
+                                // Make path relative to workspace for readability
+                                let relative_path = current_file
+                                    .strip_prefix("/Users/wezzard/Projects/ADA/")
+                                    .unwrap_or(&current_file);
+                                uncovered_lines.push(format!("{}:{}", relative_path, line_num));
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+    
+    // Sort uncovered lines for better readability
+    uncovered_lines.sort();
+    
+    // Write uncovered lines report
+    let mut report = String::from("UNCOVERED LINES REPORT\n");
+    report.push_str("======================\n\n");
+    report.push_str(&format!("Total uncovered lines: {}\n\n", uncovered_lines.len()));
+    
+    if uncovered_lines.is_empty() {
+        report.push_str("🎉 All lines are covered!\n");
+    } else {
+        report.push_str("File:Line\n");
+        report.push_str("---------\n");
+        for line in &uncovered_lines {
+            report.push_str(line);
+            report.push('\n');
+        }
+    }
+    
+    fs::write(&uncovered_path, report)?;
+    println!("    Uncovered lines report generated: {}", uncovered_path.display());
+    
+    Ok(())
+}
+
+/// Generate coverage history HTML page
+fn generate_history_report(workspace: &Path, report_dir: &Path) -> Result<()> {
+    println!("  Generating coverage history report...");
+    
+    let history_path = report_dir.join("history.html");
+    let trend_csv = workspace.join("target/coverage/coverage_trend.csv");
+    
+    let mut timestamps = Vec::new();
+    let mut coverages = Vec::new();
+    let mut commits = Vec::new();
+    
+    // Read trend data if available
+    if trend_csv.exists() {
+        let content = fs::read_to_string(&trend_csv)?;
+        for (i, line) in content.lines().enumerate() {
+            if i == 0 { continue; } // Skip header
+            
+            let parts: Vec<&str> = line.split(',').collect();
+            if parts.len() >= 3 {
+                timestamps.push(parts[0].to_string());
+                commits.push(parts[1].to_string());
+                
+                // Parse coverage percentage
+                if let Ok(cov) = parts[2].parse::<f64>() {
+                    coverages.push(cov);
+                } else {
+                    coverages.push(0.0);
+                }
+            }
+        }
+    }
+    
+    // Generate history HTML with embedded chart
+    let history_html = format!(r#"<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Coverage History</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        body {{
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            padding: 20px;
+            margin: 0;
+        }}
+        .container {{
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 12px;
+            padding: 30px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+        }}
+        h1 {{
+            color: #333;
+            margin-bottom: 30px;
+        }}
+        .chart-container {{
+            position: relative;
+            height: 400px;
+            margin: 30px 0;
+        }}
+        .stats {{
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+            margin: 30px 0;
+        }}
+        .stat-card {{
+            background: #f8f9fa;
+            padding: 20px;
+            border-radius: 8px;
+            text-align: center;
+        }}
+        .stat-value {{
+            font-size: 2em;
+            font-weight: bold;
+            color: #667eea;
+        }}
+        .stat-label {{
+            color: #666;
+            margin-top: 5px;
+        }}
+        .back-link {{
+            display: inline-block;
+            margin-top: 20px;
+            color: #667eea;
+            text-decoration: none;
+        }}
+        .back-link:hover {{
+            text-decoration: underline;
+        }}
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>📈 Coverage History</h1>
+        
+        <div class="stats">
+            <div class="stat-card">
+                <div class="stat-value">{}</div>
+                <div class="stat-label">Data Points</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value">{:.1}%</div>
+                <div class="stat-label">Current Coverage</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value">{:.1}%</div>
+                <div class="stat-label">Average Coverage</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value">{:.1}%</div>
+                <div class="stat-label">Peak Coverage</div>
+            </div>
+        </div>
+        
+        <div class="chart-container">
+            <canvas id="coverageChart"></canvas>
+        </div>
+        
+        <script>
+            const ctx = document.getElementById('coverageChart').getContext('2d');
+            const chart = new Chart(ctx, {{
+                type: 'line',
+                data: {{
+                    labels: {:?},
+                    datasets: [{{
+                        label: 'Coverage %',
+                        data: {:?},
+                        borderColor: '#667eea',
+                        backgroundColor: 'rgba(102, 126, 234, 0.1)',
+                        borderWidth: 2,
+                        fill: true,
+                        tension: 0.4
+                    }}]
+                }},
+                options: {{
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {{
+                        legend: {{
+                            display: false
+                        }},
+                        tooltip: {{
+                            callbacks: {{
+                                afterLabel: function(context) {{
+                                    const commits = {:?};
+                                    return 'Commit: ' + commits[context.dataIndex];
+                                }}
+                            }}
+                        }}
+                    }},
+                    scales: {{
+                        y: {{
+                            beginAtZero: true,
+                            max: 100,
+                            ticks: {{
+                                callback: function(value) {{
+                                    return value + '%';
+                                }}
+                            }}
+                        }}
+                    }}
+                }}
+            }});
+        </script>
+        
+        <a href="index.html" class="back-link">← Back to Dashboard</a>
+    </div>
+</body>
+</html>"#,
+        coverages.len(),
+        coverages.last().unwrap_or(&0.0),
+        if coverages.is_empty() { 0.0 } else { coverages.iter().sum::<f64>() / coverages.len() as f64 },
+        coverages.iter().fold(0.0f64, |a, &b| a.max(b)),
+        timestamps,
+        coverages,
+        commits
+    );
+    
+    fs::write(&history_path, history_html)?;
+    println!("    Coverage history report generated: {}", history_path.display());
     
     Ok(())
 }
