@@ -120,7 +120,7 @@ This activity is focused on the process of running a program to generate a trace
     - So that I can proceed with the analysis phase.
 
 4. As an **AI Agent**
-    - I want to arm tracing triggers (by symbol, duration threshold, crash/signal, time window) and set pre/post roll for a flight recorder without restarting the target
+    - I want to arm tracing triggers (by symbol, duration threshold, crash/signal, time window) and set pre/post roll for selective persistence without restarting the target
     - So that I can capture full-detail windows around key events with minimal perturbation.
 
 5. As an **AI Agent**

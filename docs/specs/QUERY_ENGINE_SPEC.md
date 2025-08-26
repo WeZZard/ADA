@@ -44,7 +44,7 @@ Non-goals (MVP): UI, variable value decoding, live stepping. The engine is a rea
 - Output: `{ bullets: string[], findings: Finding[], didTruncate }`
 - Finding: `{ title, rationale, evidenceRefs: EvidenceRef[] }`
 - Notes: compress repetitive patterns; surface anomalies (crash, unmatched, p95/p99 outliers).
- - Flight recorder: include window markers and detail coverage ratios; state if summary is based on index-lane only.
+ - Selective persistence: include persistence window markers and detail coverage ratios; state if summary is based on index-lane only.
 
 ### 5.3 findings.search (MUST)
 - Purpose: symptom-driven retrieval using user/agent text.
@@ -84,7 +84,7 @@ Non-goals (MVP): UI, variable value decoding, live stepping. The engine is a rea
 - Neighborhood slice around an anchor span/time.
 - Input: `{ anchor: { spanId } | { timeNs, tid }, lookBackNs, lookAheadNs, filters?, tokenBudget? }`
 - Output: summarized window: `{ spans: SpanRow[], exemplars?: SpanRow[], evidenceRefs: EvidenceRef[], didTruncate }`
- - Flight recorder: prefer `lane="detail"` within configured windows; otherwise return index-lane summaries with pointers to nearest window.
+ - Selective persistence: prefer `lane="detail"` within persisted windows; otherwise return index-lane summaries with pointers to nearest window.
 
 ### 6.3 graph.taskTree (SHOULD)
 - Compact async causality graph with folding.
@@ -106,7 +106,7 @@ Non-goals (MVP): UI, variable value decoding, live stepping. The engine is a rea
 - Function index: functionId → event/spans postings.
 - Derived spans table: compact sidecar for spans with `{start,end,duration,status}`.
 - Symbol/DWARF index: described above.
- - Windows table: list of `{startNs, endNs, triggerKind, keySymbolVersion}` for flight recorder.
+ - Windows table: list of `{startNs, endNs, triggerKind, keySymbolVersion}` for selective persistence windows.
 
 ## 9) Performance and Limits (MUST)
 - P-001 Token budgets: all narrative/list/search methods must attempt to fit within `tokenBudget` using compaction (fold repeats, exemplars, elide fields). If still too large, set `didTruncate=true` and return `nextCursor`.

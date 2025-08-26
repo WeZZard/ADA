@@ -144,8 +144,8 @@ This document specifies the behavior and requirements of the ADA Tracer componen
   - Control plane API allowing remote trigger of spawn/attach and configuration; returns trace directory path and metrics snapshot.
 - CF-003 (MUST) Defaults
   - Full coverage ON; stack window 128 bytes; sampling OFF; excludes NONE.
- - CF-004 (MUST) Flight recorder mode
-   - Configure always-on index lane and detailed window capture with `--pre-roll-sec`, `--post-roll-sec`, and triggers (`--trigger symbol=foo`, `--trigger p99=function:bar>50ms`, `--trigger crash`, `--trigger time=10:30-10:45`). Triggers are armable without restart when supported.
+ - CF-004 (MUST) Selective persistence mode
+   - Configure always-on index lane capture/persistence and always-on detail lane capture with selective persistence using `--pre-roll-sec`, `--post-roll-sec`, and triggers (`--trigger symbol=foo`, `--trigger p99=function:bar>50ms`, `--trigger crash`, `--trigger time=10:30-10:45`). Triggers are armable without restart when supported.
 - CF-005 (MUST) Key-symbol updates
   - Accept moduleId→container blobs (bitset/roaring/hash) over CLI/API to update key symbols live (double-buffer + RCU swap), without restart. Manifest records container type, version, and hash.
 
@@ -200,8 +200,8 @@ This document specifies the behavior and requirements of the ADA Tracer componen
   - Under synthetic overload, tracer maintains bounded latency using ring watermarks. If drops occur, they follow the drop-oldest policy with reason codes. No sampling or quality shedding is applied.
 - A5: Output validity
   - Produces an ATF directory with length-delimited `Event` stream; passes a validator for schema compliance.
- - A6: Flight recorder
-   - With Wpre/Wpost configured and a trigger fired, the trace contains full-detail windows around the trigger while the remainder of the run persists only the index lane. Mode and window parameters are recorded in the manifest.
+ - A6: Selective persistence
+   - With Wpre/Wpost configured and a trigger fired, the trace contains full-detail persistence windows around marked events while the index lane is always persisted. Detail events are always captured but only persisted when marked events occur. Mode and window parameters are recorded in the manifest.
 
 ## 15. Test Plan Outline
 - TP-001 Coverage startup test: measure hook count and time-to-hook on sample app + DSOs.

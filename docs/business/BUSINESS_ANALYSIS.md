@@ -55,7 +55,7 @@ This document consolidates business reasoning backed by the repository’s user 
   - APM/eBPF only: production‑oriented; lacks interactive local agent flows.
 - **ADA differentiators (from specs/architecture)**
   - Structured protocol (JSON‑RPC) and ATF schema; no CLI scraping.
-  - Two‑lane flight recorder: always‑on index + triggered detail; high throughput with bounded overhead.
+  - Two‑lane selective persistence: always‑on index capture/persistence + always-on detail capture with selective persistence; high throughput with bounded overhead.
   - Deterministic preflight diagnostics and error→remediation mapping with guardrails.
   - Cross‑platform adapter strategy (Frida now; eBPF/Windows later) under a stable API.
 
@@ -63,7 +63,7 @@ This document consolidates business reasoning backed by the repository’s user 
 
 - **MVP (macOS-first)**
   - Full‑coverage function tracing; FunctionCall/Return with ABI registers + shallow stack.
-  - Flight recorder (pre/post roll, triggers, key‑symbol lane); durable ATF output; metrics.
+  - Selective persistence (pre/post roll context, triggers, key‑symbol marking); durable ATF output; metrics.
   - Preflight `diagnose` with permission/entitlement checks and clear remediation; consent guardrails.
   - CLI and JSON‑RPC control plane; configurable output and capture settings.
 - **V1 (cross‑platform parity)**

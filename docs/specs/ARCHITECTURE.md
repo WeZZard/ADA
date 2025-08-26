@@ -2,7 +2,7 @@
 
 ## Overview
 
-ADA is a comprehensive tracing and analysis platform that captures program execution with minimal overhead using a two-lane flight recorder architecture inspired by aircraft black boxes.
+ADA is a comprehensive tracing and analysis platform that captures program execution with minimal overhead using a two-lane architecture with selective persistence inspired by aircraft black boxes.
 
 ## System Architecture
 
@@ -38,7 +38,7 @@ ADA is a comprehensive tracing and analysis platform that captures program execu
 └──────────────────────────────────────────────────────────────┘
 ```
 
-## Two-Lane Flight Recorder Architecture
+## Two-Lane Selective Persistence Architecture
 
 ### Design Principles
 
@@ -66,9 +66,9 @@ struct IndexEvent {
 - Target: <1% overhead at 5M events/sec
 - Provides complete execution timeline
 
-### Lane 2: Detail Lane (Triggered)
+### Lane 2: Detail Lane (Always Captured, Selectively Persisted)
 
-**Purpose**: Deep context capture when anomalies detected
+**Purpose**: Deep context always captured to ring buffer, persisted when marked events occur
 
 **Event Structure** (512 bytes):
 ```c

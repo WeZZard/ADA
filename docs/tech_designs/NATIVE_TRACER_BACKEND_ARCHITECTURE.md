@@ -89,7 +89,7 @@ graph TB
 1. **Two-Lane Buffer Architecture**: Separates compact index events (always captured) from rich detail events (windowed capture)
 2. **Per-Thread SPSC Rings**: Lock-free event writing from multiple threads without contention
 3. **Shared Memory IPC**: Zero-copy event transfer between processes
-4. **Flight Recorder Pattern**: Continuous circular buffer with trigger-based detailed capture
+4. **Selective Persistence Pattern**: Continuous circular buffer with trigger-based detailed persistence
 5. **Platform Abstraction**: Different spawning strategies for mock tracees vs system binaries
 
 ## Component Architecture
@@ -303,22 +303,19 @@ stateDiagram-v2
     Initialized --> [*]: frida_context_destroy()
 ```
 
-### Flight Recorder State Machine
+### Selective Persistence State Machine
 
 ```mermaid
 stateDiagram-v2
-    [*] --> Idle
+    [*] --> Capturing
     
-    Idle --> Armed: frida_arm_trigger()
-    Armed --> PreRoll: Trigger condition met
-    PreRoll --> Recording: Pre-roll complete
-    Recording --> PostRoll: Main window complete
-    PostRoll --> Idle: Post-roll complete
+    Capturing --> MarkedSeen: Marked event detected
+    MarkedSeen --> Persisting: Buffer full
+    Persisting --> Capturing: Dump complete
     
-    Armed --> Idle: frida_disarm_trigger()
-    PreRoll --> Idle: frida_stop_window()
-    Recording --> Idle: frida_stop_window()
-    PostRoll --> Idle: frida_stop_window()
+    note right of Capturing: Always capturing to ring
+    note right of MarkedSeen: Flag set, waiting for full
+    note right of Persisting: Dumping buffer with pre/post context
 ```
 
 ## Memory Layout
@@ -421,16 +418,16 @@ if (ring->read_pos != ring->write_pos) {
 }
 ```
 
-### 3. Flight Recorder Pattern
+### 3. Selective Persistence Pattern
 
-**Intent**: Continuous monitoring with triggered detailed capture
+**Intent**: Continuous monitoring with triggered detailed persistence
 
 **States** (higher-level view; realized via ring-pool dump triggers in M1):
 
-- Idle: Minimal capture
-- Armed: Waiting for trigger
-- Recording: Full capture window
-- Pre/Post-roll: Context capture
+- Idle: Always capturing to both lanes, index persists on full
+- Armed: Waiting for marked events
+- Persisting: Dumping detail buffer when marked AND full
+- Pre/Post-roll: Context already in buffer when marked event occurs
 
 ### 4. Platform Abstraction Pattern
 ### 5. Ring pool and swap protocol (new)

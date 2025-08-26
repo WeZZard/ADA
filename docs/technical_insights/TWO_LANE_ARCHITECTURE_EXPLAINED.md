@@ -1,4 +1,4 @@
-# Two-Lane Flight Recorder Architecture Explained
+# Two-Lane Selective Persistence Architecture Explained
 
 **Date**: 2025-08-15  
 **Type**: Technical Explanation  
@@ -6,7 +6,7 @@
 
 ## Core Concept: Two-Lane Ring Buffer
 
-The ADA Tracer uses a **two-lane architecture** inspired by aircraft flight recorders. Think of it like having two separate recording devices running simultaneously:
+The ADA Tracer uses a **two-lane architecture** with selective persistence. Think of it like having two separate recording devices running simultaneously:
 
 1. **Index Lane**: Lightweight, always-on recording with continuous persistence
 2. **Detail Lane**: Heavy, always-on recording with windowed persistence
@@ -135,7 +135,7 @@ This event would mark the detail buffer for persistence if `strcpy` is in the ma
 | **Duration** | Minutes to hours | Seconds to minutes |
 | **Use Case** | "What happened?" | "Why did it crash?" |
 
-## Flight Recorder Analogy
+## Black Box Analogy
 
 Like an aircraft black box:
 
