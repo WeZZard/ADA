@@ -144,6 +144,7 @@ fn main() {
         ("build/test_shared_memory", "test/test_shared_memory"),
         ("build/test_spawn_method", "test/test_spawn_method"),
         ("build/test_thread_registry", "test/test_thread_registry"),
+        ("build/test_thread_registry_cpp", "test/test_thread_registry_cpp"),
         ("build/test_thread_registry_integration", "test/test_thread_registry_integration"),
         ("build/test_controller_full_lifecycle", "test/test_controller_full_lifecycle"),
         ("build/test_integration", "test/test_integration"),

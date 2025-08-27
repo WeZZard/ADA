@@ -415,6 +415,25 @@ if(BUILD_TESTING)
             Threads::Threads
     )
     
+    # C++ Thread Registry test
+    add_executable(test_thread_registry_cpp
+        tests/unit/test_thread_registry_cpp.cpp
+        tests/test_main.cpp
+    )
+    
+    target_include_directories(test_thread_registry_cpp
+        PRIVATE
+            ${CMAKE_CURRENT_SOURCE_DIR}/include
+    )
+    
+    target_link_libraries(test_thread_registry_cpp
+        PRIVATE
+            GTest::gtest
+            GTest::gmock
+            tracer_utils
+            Threads::Threads
+    )
+    
     # Agent loader test for M1_E1_I1
     add_executable(test_agent_loader
         tests/integration/test_agent_loader.cpp
