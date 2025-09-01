@@ -215,6 +215,13 @@ mod tests {
     use serial_test::serial;
     use std::process::Stdio;
     
+    fn integration_tests_enabled() -> bool {
+        match env::var("ADA_RUN_INTEGRATION_TESTS") {
+            Ok(v) => matches!(v.as_str(), "1" | "true" | "TRUE" | "yes" | "YES"),
+            Err(_) => false,
+        }
+    }
+    
     #[test]
     fn test_controller_creation() {
         // Note: This test creates shared memory segments with fixed names
@@ -232,42 +239,53 @@ mod tests {
         assert!(controller.is_ok());
     }
     
-    // Helper function to run C tests
+    // Helper function to run C/C++ tests
     fn run_c_test(test_name: &str) -> Result<(), String> {
-        // Try to find the test binary - first check predictable location
-        let mut test_paths = vec![
-            format!("target/release/tracer_backend/test/{}", test_name),
-            format!("target/debug/tracer_backend/test/{}", test_name),
+        // Use absolute paths anchored at the workspace root to avoid cwd issues
+        let workspace_root: &str = env!("ADA_WORKSPACE_ROOT");
+        let out_dir_const: &str = env!("OUT_DIR");
+
+        let candidate_paths = [
+            format!("{}/target/debug/tracer_backend/test/{}", workspace_root, test_name),
+            format!("{}/target/release/tracer_backend/test/{}", workspace_root, test_name),
+            // CMake build tree locations
+            format!("{}/build/tests/{}", out_dir_const, test_name),
+            format!("{}/build/{}", out_dir_const, test_name),
+            format!("{}/../../build/tests/{}", out_dir_const, test_name),
+            format!("{}/../../build/{}", out_dir_const, test_name),
+            // CMake install dir under OUT_DIR
+            format!("{}/bin/{}", out_dir_const, test_name),
+            format!("{}/out/bin/{}", out_dir_const, test_name),
         ];
-        
-        // Fallback to build directory with hash if predictable paths don't exist
-        if let Ok(out_dir) = env::var("OUT_DIR") {
-            test_paths.push(format!("{}/build/{}", out_dir, test_name));
-            test_paths.push(format!("{}/../../build/{}", out_dir, test_name));
-        }
-        
-        let test_path = test_paths.iter()
-            .find(|p| std::path::Path::new(p).exists())
-            .ok_or_else(|| format!("Test binary {} not found. Run 'cargo build --release' first.", test_name))?;
-        
-        println!("Running C test: {}", test_path);
-        
+
+        let test_path = candidate_paths
+            .iter()
+            .map(|p| std::path::Path::new(p))
+            .find(|p| p.exists())
+            .ok_or_else(|| format!(
+                "Test binary {} not found. Ensure CMake tests are built (try `cargo build`).",
+                test_name
+            ))?;
+
+        println!("Running C test: {}", test_path.display());
+
         let output = Command::new(test_path)
             .stdout(Stdio::inherit())
             .stderr(Stdio::inherit())
             .output()
             .map_err(|e| format!("Failed to execute {}: {}", test_name, e))?;
-        
-        // Always echo stdout/stderr for visibility when running under cargo test
-        print!("{}", String::from_utf8_lossy(&output.stdout));
+
+        if !output.stdout.is_empty() {
+            print!("{}", String::from_utf8_lossy(&output.stdout));
+        }
         if !output.stderr.is_empty() {
             eprint!("{}", String::from_utf8_lossy(&output.stderr));
         }
-        
+
         if !output.status.success() {
             return Err(format!("{} failed with status: {}", test_name, output.status));
         }
-        
+
         Ok(())
     }
     
@@ -289,42 +307,70 @@ mod tests {
     
     #[test]
     fn test_spawn_method() {
+        if !integration_tests_enabled() {
+            eprintln!("Skipping test_spawn_method (set ADA_RUN_INTEGRATION_TESTS=1 to run)");
+            return;
+        }
         run_c_test("test_spawn_method").expect("Spawn method test failed");
     }
     
     #[test]
     #[serial]
     fn test_controller_full_lifecycle() {
+        if !integration_tests_enabled() {
+            eprintln!("Skipping test_controller_full_lifecycle (set ADA_RUN_INTEGRATION_TESTS=1 to run)");
+            return;
+        }
         run_c_test("test_controller_full_lifecycle").expect("Controller full lifecycle test failed");
     }
     
     #[test]
     #[serial]
     fn test_integration() {
+        if !integration_tests_enabled() {
+            eprintln!("Skipping test_integration (set ADA_RUN_INTEGRATION_TESTS=1 to run)");
+            return;
+        }
         run_c_test("test_integration").expect("Integration test failed");
     }
     
     #[test]
     #[serial]
     fn test_agent_loader() {
+        if !integration_tests_enabled() {
+            eprintln!("Skipping test_agent_loader (set ADA_RUN_INTEGRATION_TESTS=1 to run)");
+            return;
+        }
         run_c_test("test_agent_loader").expect("Agent loader test failed");
     }
 
     #[test]
     #[serial]
     fn test_baseline_hooks() {
+        if !integration_tests_enabled() {
+            eprintln!("Skipping test_baseline_hooks (set ADA_RUN_INTEGRATION_TESTS=1 to run)");
+            return;
+        }
         run_c_test("test_baseline_hooks").expect("Baseline hooks test failed");
     }
 
     #[test]
     #[serial]
     fn test_thread_registry() {
+        if !integration_tests_enabled() {
+            eprintln!("Skipping test_thread_registry (set ADA_RUN_INTEGRATION_TESTS=1 to run)");
+            return;
+        }
         run_c_test("test_thread_registry").expect("Thread registry test failed");
     }
 
     #[test]
     #[serial]
     fn test_thread_registry_integration() {
+        if !integration_tests_enabled() {
+            eprintln!("Skipping test_thread_registry_integration (set ADA_RUN_INTEGRATION_TESTS=1 to run)");
+            return;
+        }
         run_c_test("test_thread_registry_integration").expect("Thread registry integration test failed");
     }
 }

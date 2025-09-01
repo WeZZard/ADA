@@ -59,10 +59,36 @@ project-root/
 │
 ├── tracer/                        # Rust tracer (control plane)
 │   └── Cargo.toml                # Component manifest
-├── tracer_backend/               # C/C++ backend (data plane)
+├── tracer_backend/               # C/C++ backend (data plane) - MODULAR STRUCTURE
 │   ├── Cargo.toml                # CRITICAL: Rust manifest that orchestrates CMake
 │   ├── build.rs                  # CRITICAL: Invokes CMake via cmake crate
-│   └── CMakeLists.txt            # CMake config (invoked by build.rs, NEVER directly)
+│   ├── CMakeLists.txt            # Root CMake - includes subdirectories
+│   ├── include/tracer_backend/   # PUBLIC headers only (opaque types)
+│   │   └── {module}/             # {module} public API
+│   ├── src/                      # PRIVATE implementation
+│   │   ├── CMakeLists.txt        # Source modules build
+│   │   └── {module}/             # {module} implementation
+│   │       ├── CMakeLists.txt    # {module} build
+│   │       ├── *.c/cpp           # Implementation files
+│   │       └── *_private.h       # Private headers
+│   └── tests/                    # Test files
+│       ├── CMakeLists.txt        # Test modules build
+│       ├── *.h                   # Shared headers in tests
+│       ├── bench/                # Benchmarks
+│       │   └── {module}/             # {module} benchmark
+│       │       ├── CMakeLists.txt    # {module} benchmark build
+│       │       ├── *.c/cpp           # Tests files
+│       │       └── *.h               # Private headers for {module} benchmark
+│       ├── unit/                 # Unit tests
+│       │   └── {module}/             # {module} unit tests
+│       │       ├── CMakeLists.txt    # {module} unit tests build
+│       │       ├── *.c/cpp           # Tests files
+│       │       └── *.h               # Private headers for {module} unit tests
+│       └── integration/          # Integration tests
+│           └── {module}/             # {module} unit tests
+│               ├── CMakeLists.txt    # {module} unit tests build
+│               ├── *.c/cpp           # Tests files
+│               └── *.h               # Private headers for {module} integration tests
 ├── query_engine/                 # Python query engine
 │   ├── Cargo.toml                # Rust manifest for Python binding
 │   └── pyproject.toml            # Python config (built via maturin)
@@ -73,6 +99,24 @@ project-root/
 ├── third_parties/               # Frida SDK and dependencies
 └── target/                      # Build outputs (git-ignored)
 ```
+
+### Modular Directory Pattern (MANDATORY)
+
+**Public/Private Separation:**
+- `include/<component>/` - Public headers with opaque types ONLY
+- `src/<module>/` - Private implementation with concrete definitions
+- `src/<module>/*_private.h` - Private headers for internal use and tests
+
+**CMake Modularity:**
+- Each directory has its own CMakeLists.txt
+- Root CMakeLists.txt uses `add_subdirectory()`
+- Clear target dependencies between modules
+- Tests in separate CMakeLists.txt
+
+**Include Path Convention:**
+- Public: `#include <tracer_backend/module/header.h>`
+- Private: `#include "header_private.h"` (within module)
+- Tests: Include private headers from `src/` for internals
 
 **Rules:**
 1. Component directories use snake_case

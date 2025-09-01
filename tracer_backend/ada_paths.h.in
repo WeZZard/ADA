@@ -1,0 +1,21 @@
+// Generated configuration header for ADA paths
+#ifndef ADA_PATHS_H
+#define ADA_PATHS_H
+
+// Workspace root path
+#define ADA_WORKSPACE_ROOT "@CMAKE_SOURCE_DIR@/.."
+
+// Build profile
+#ifdef CMAKE_BUILD_TYPE
+    #define ADA_BUILD_PROFILE "@CMAKE_BUILD_TYPE@"
+#else
+    #define ADA_BUILD_PROFILE "Debug"
+#endif
+
+// Binary directory
+#define ADA_BINARY_DIR "@CMAKE_BINARY_DIR@"
+
+// Source directory
+#define ADA_SOURCE_DIR "@CMAKE_SOURCE_DIR@"
+
+#endif // ADA_PATHS_H
