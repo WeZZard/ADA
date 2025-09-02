@@ -363,6 +363,11 @@ mod tests {
         }
         run_c_test("test_thread_registry").expect("Thread registry test failed");
     }
+    
+    #[test]
+    fn test_thread_registry_cpp() {
+        run_c_test("test_thread_registry_cpp").expect("Thread registry C++ test failed");
+    }
 
     #[test]
     #[serial]
