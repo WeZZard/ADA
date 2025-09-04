@@ -154,6 +154,7 @@ Missing step 2 = test won't be accessible via Cargo!
 ### Test Robustness Features (Updated 2025-01-03)
 
 The C++/Rust test integration in `src/lib.rs` includes:
+
 - **Crash Detection**: Segfaults/signals clearly reported with debugging steps
 - **Timeout Protection**: 60s for unit tests, 120s for integration tests
 - **Process Groups**: Unix tests run in separate groups for clean termination

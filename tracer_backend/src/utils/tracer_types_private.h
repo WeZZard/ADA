@@ -12,8 +12,8 @@
 // Private constants for internal use
 #define RINGS_PER_INDEX_LANE 4
 #define RINGS_PER_DETAIL_LANE 2
-#define QUEUE_COUNT_INDEX_LANE 8
-#define QUEUE_COUNT_DETAIL_LANE 4
+#define QUEUE_COUNT_INDEX_LANE 1024
+#define QUEUE_COUNT_DETAIL_LANE 256
 
 // Forward declaration - RingBuffer is defined in ring_buffer.h
 struct RingBuffer;
