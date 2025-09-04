@@ -31,14 +31,14 @@ void thread_registry_set_my_lanes(ThreadLaneSet* lanes);
 
 // Use C++ implementation but expose C interface
 ThreadRegistry* thread_registry_init(void* memory, size_t size) {
-    auto* cpp_registry = ada::internal::ThreadRegistry::create(memory, size);
-    return reinterpret_cast<ThreadRegistry*>(cpp_registry);
+    auto* impl = ada::internal::ThreadRegistry::create(memory, size);
+    return reinterpret_cast<ThreadRegistry*>(impl);
 }
 
 void thread_registry_deinit(ThreadRegistry* registry) {
     if (!registry) return;
-    auto* cpp_registry = reinterpret_cast<ada::internal::ThreadRegistry*>(registry);
-    cpp_registry->~ThreadRegistry();
+    auto* impl = reinterpret_cast<ada::internal::ThreadRegistry*>(registry);
+    impl->~ThreadRegistry();
 }
 
 ThreadLaneSet* thread_registry_register(ThreadRegistry* registry, uintptr_t thread_id) {

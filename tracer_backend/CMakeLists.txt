@@ -91,7 +91,6 @@ configure_file(
 
 # Build order matters for dependencies
 add_subdirectory(src/utils)        # Utils library (no dependencies)
-add_subdirectory(src/interfaces)   # Interface skeletons for validation
 add_subdirectory(src/controller)   # Controller library (depends on utils)
 add_subdirectory(src/agent)        # Agent library (depends on utils)
 
