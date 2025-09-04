@@ -247,37 +247,5 @@ Lane* thread_lanes_get_detail_lane(ThreadLaneSet* lanes) {
     return reinterpret_cast<Lane*>(&cpp_lanes->detail_lane);
 }
 
-#ifdef BUILD_TESTING
-// Test-only accessors that break encapsulation
-uint32_t thread_lanes_get_slot_index(ThreadLaneSet* lanes) {
-    if (!lanes) return UINT32_MAX;
-    auto* cpp_lanes = reinterpret_cast<ada::internal::ThreadLaneSet*>(lanes);
-    return cpp_lanes->slot_index;
-}
-
-bool thread_lanes_is_active(ThreadLaneSet* lanes) {
-    if (!lanes) return false;
-    auto* cpp_lanes = reinterpret_cast<ada::internal::ThreadLaneSet*>(lanes);
-    return cpp_lanes->active.load(std::memory_order_acquire);
-}
-
-void thread_lanes_set_active(ThreadLaneSet* lanes, bool active) {
-    if (!lanes) return;
-    auto* cpp_lanes = reinterpret_cast<ada::internal::ThreadLaneSet*>(lanes);
-    cpp_lanes->active.store(active, std::memory_order_release);
-}
-
-uint64_t thread_lanes_get_events_generated(ThreadLaneSet* lanes) {
-    if (!lanes) return 0;
-    auto* cpp_lanes = reinterpret_cast<ada::internal::ThreadLaneSet*>(lanes);
-    return cpp_lanes->events_generated.load(std::memory_order_acquire);
-}
-
-void thread_lanes_set_events_generated(ThreadLaneSet* lanes, uint64_t count) {
-    if (!lanes) return;
-    auto* cpp_lanes = reinterpret_cast<ada::internal::ThreadLaneSet*>(lanes);
-    cpp_lanes->events_generated.store(count, std::memory_order_release);
-}
-#endif
 
 }  // extern "C"

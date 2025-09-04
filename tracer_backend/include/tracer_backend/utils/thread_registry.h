@@ -123,15 +123,6 @@ ThreadLaneSet* thread_registry_get_thread_at(ThreadRegistry* registry, uint32_t 
 Lane* thread_lanes_get_index_lane(ThreadLaneSet* lanes);
 Lane* thread_lanes_get_detail_lane(ThreadLaneSet* lanes);
 
-// Test-only accessor functions for ThreadLaneSet internals
-// These break encapsulation but are needed for existing tests
-#ifdef BUILD_TESTING
-uint32_t thread_lanes_get_slot_index(ThreadLaneSet* lanes);
-bool thread_lanes_is_active(ThreadLaneSet* lanes);
-void thread_lanes_set_active(ThreadLaneSet* lanes, bool active);
-uint64_t thread_lanes_get_events_generated(ThreadLaneSet* lanes);
-void thread_lanes_set_events_generated(ThreadLaneSet* lanes, uint64_t count);
-#endif
 
 // Thread-local pointer for fast lane access
 extern __thread ThreadLaneSet* tls_my_lanes;

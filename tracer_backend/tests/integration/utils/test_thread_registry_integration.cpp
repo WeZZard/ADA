@@ -16,9 +16,11 @@ extern "C" {
     #include <tracer_backend/utils/thread_registry.h>
     #include <tracer_backend/utils/shared_memory.h>
     #include <tracer_backend/utils/tracer_types.h>
-    // Include private header for test access to internal structures
-    #include "tracer_types_private.h"
 }
+
+// Include private headers for test access to internal structures
+#include "thread_registry_private.h"
+#include "tracer_types_private.h"
 
 using namespace std::chrono;
 using ::testing::_;
@@ -139,11 +141,19 @@ static void* drain_worker(void* arg) {
                 continue;
             }
             
+            // Get the index lane through the C API
+            Lane* index_lane = thread_lanes_get_index_lane(lanes);
+            if (!index_lane) {
+                continue;
+            }
+            
             // Drain events from this thread's lane
             uint32_t ring_idx;
-            while ((ring_idx = lane_take_ring(&lanes->index_lane)) != UINT32_MAX) {
+            while ((ring_idx = lane_take_ring(index_lane)) != UINT32_MAX) {
                 data->per_thread_drained[i]++;
                 data->total_drained++;
+                // Return the ring
+                lane_return_ring(index_lane, ring_idx);
             }
         }
         
@@ -232,21 +242,18 @@ TEST_F(ThreadRegistryIntegrationTest, integration__multi_thread_registration__th
         if (worker_data[i].lanes) {
             valid_lanes_count++;
             
-            #ifdef BUILD_TESTING
-            // Check for duplicate slots
-            uint32_t slot = thread_lanes_get_slot_index(worker_data[i].lanes);
+            // Direct C++ access to check for duplicate slots
+            auto* cpp_lanes = reinterpret_cast<ada::internal::ThreadLaneSet*>(worker_data[i].lanes);
+            uint32_t slot = cpp_lanes->slot_index;
             bool slot_inserted = unique_slots.insert(slot).second;
             ASSERT_TRUE(slot_inserted) << "Duplicate slot detected: " << slot 
                                        << " for thread " << i
                                        << " (total threads: " << NUM_THREADS << ")";
-            #endif
         }
     }
     
     printf("  Registration stats: %d threads registered successfully\n", valid_lanes_count);
-    #ifdef BUILD_TESTING
     printf("  Unique slots allocated: %zu\n", unique_slots.size());
-    #endif
     
     // Verify all threads are visible in registry
     uint32_t registered_count = thread_registry_get_active_count(registry);

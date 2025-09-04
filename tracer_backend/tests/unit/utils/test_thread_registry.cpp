@@ -419,8 +419,9 @@ TEST_F(ThreadRegistryTest, isolation__no_false_sharing__then_independent_perform
             // Reset counter for actual measurement
             lane->events_written.store(0, std::memory_order_relaxed);
             
-            // Ensure all warm-up effects are visible
-            std::atomic_thread_fence(std::memory_order_seq_cst);
+            // Ensure all warm-up effects are visible  
+            // Use compiler barrier instead of atomic_thread_fence to avoid stdatomic.h macro conflict
+            __asm__ __volatile__("" ::: "memory");
             
             auto start = std::chrono::high_resolution_clock::now();
             

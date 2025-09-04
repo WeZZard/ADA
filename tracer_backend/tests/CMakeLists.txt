@@ -23,7 +23,6 @@ include(GoogleTest)
 # Common test main
 add_library(test_main STATIC test_main.cpp)
 target_link_libraries(test_main PUBLIC GTest::gtest GTest::gmock)
-target_compile_definitions(test_main PUBLIC BUILD_TESTING=1)
 target_include_directories(test_main 
     PRIVATE 
         ${CMAKE_BINARY_DIR}  # For ada_paths.h
