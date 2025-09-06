@@ -701,7 +701,7 @@ void agent_deinit() {
     bool needs_reset = false;
     {
         std::lock_guard<std::mutex> lock(ada::internal::g_context_mutex);
-        needs_reset = ada::internal::g_agent_context.get() != nil;
+        needs_reset = ada::internal::g_agent_context.get() != nullptr;
         ada::internal::g_agent_context.reset();
     }
     

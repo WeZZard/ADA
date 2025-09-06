@@ -39,7 +39,6 @@ target_link_libraries(frida_agent
 if(APPLE)
     target_link_libraries(frida_agent
         PUBLIC
-            "-framework Foundation"
             bsm
             dl
     )

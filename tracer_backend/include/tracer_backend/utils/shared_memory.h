@@ -5,7 +5,6 @@
 #include <stdbool.h>
 #include <stdint.h>
 #include <sys/types.h>
-#include <CoreFoundation/CoreFoundation.h>
 
 #ifdef __cplusplus
 extern "C" {
