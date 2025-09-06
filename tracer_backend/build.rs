@@ -6,6 +6,7 @@ fn main() {
     println!("cargo:rerun-if-changed=src/");
     println!("cargo:rerun-if-changed=include/");
     println!("cargo:rerun-if-changed=CMakeLists.txt");
+    println!("cargo:rerun-if-changed=tests/");
     
     let out_dir = PathBuf::from(env::var("OUT_DIR").unwrap());
     let profile = env::var("PROFILE").unwrap();

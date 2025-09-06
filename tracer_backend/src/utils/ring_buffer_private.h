@@ -41,7 +41,15 @@ public:
         // Initialize header
         header_->magic = RING_BUFFER_MAGIC;
         header_->version = RING_BUFFER_VERSION;
-        header_->capacity = buffer_size_ / event_size;
+        {
+            // Compute events capacity and round down to nearest power-of-two (>=2)
+            uint32_t events = static_cast<uint32_t>(buffer_size_ / event_size);
+            if (events < 2) return false;
+            // Round down to pow2
+            uint32_t p2 = 1u << (31 - __builtin_clz(events));
+            header_->capacity = p2;
+            mask_ = p2 - 1u;
+        }
         // Use C11 atomic operations on _Atomic members
         __atomic_store_n(&header_->write_pos, 0, __ATOMIC_RELAXED);
         __atomic_store_n(&header_->read_pos, 0, __ATOMIC_RELAXED);
@@ -65,6 +73,9 @@ public:
         if (header_->magic != RING_BUFFER_MAGIC) {
             return false;
         }
+        // Compute mask from capacity (assume power-of-two)
+        if (header_->capacity == 0) return false;
+        mask_ = header_->capacity - 1u;
         
         return true;
     }
@@ -74,7 +85,7 @@ public:
         if (!event) return false;
         
         uint32_t write_pos = __atomic_load_n(&header_->write_pos, __ATOMIC_ACQUIRE);
-        uint32_t next_pos = (write_pos + 1) % header_->capacity;
+        uint32_t next_pos = (write_pos + 1) & mask_;
         uint32_t read_pos = __atomic_load_n(&header_->read_pos, __ATOMIC_ACQUIRE);
         
         // Check if full
@@ -97,12 +108,7 @@ public:
     size_t available_write() {
         uint32_t write_pos = __atomic_load_n(&header_->write_pos, __ATOMIC_ACQUIRE);
         uint32_t read_pos = __atomic_load_n(&header_->read_pos, __ATOMIC_ACQUIRE);
-        
-        if (write_pos >= read_pos) {
-            return header_->capacity - (write_pos - read_pos) - 1;
-        } else {
-            return read_pos - write_pos - 1;
-        }
+        return (read_pos - write_pos - 1u) & mask_;
     }
     
     // Consumer operations
@@ -122,7 +128,7 @@ public:
         std::memcpy(event, src, event_size_);
         
         // Update read position
-        uint32_t next_pos = (read_pos + 1) % header_->capacity;
+        uint32_t next_pos = (read_pos + 1) & mask_;
         __atomic_store_n(&header_->read_pos, next_pos, __ATOMIC_RELEASE);
         
         return true;
@@ -147,12 +153,7 @@ public:
     size_t available_read() {
         uint32_t write_pos = __atomic_load_n(&header_->write_pos, __ATOMIC_ACQUIRE);
         uint32_t read_pos = __atomic_load_n(&header_->read_pos, __ATOMIC_ACQUIRE);
-        
-        if (write_pos >= read_pos) {
-            return write_pos - read_pos;
-        } else {
-            return header_->capacity - (read_pos - write_pos);
-        }
+        return (write_pos - read_pos) & mask_;
     }
     
     // Status operations
@@ -167,7 +168,7 @@ public:
         uint32_t write_pos = __atomic_load_n(&header_->write_pos, __ATOMIC_ACQUIRE);
         uint32_t read_pos = __atomic_load_n(&header_->read_pos, __ATOMIC_ACQUIRE);
         
-        uint32_t next_pos = (write_pos + 1) % header_->capacity;
+        uint32_t next_pos = (write_pos + 1) & mask_;
         return next_pos == read_pos;
     }
     
@@ -187,6 +188,7 @@ private:
     uint8_t* buffer_{nullptr};
     size_t event_size_{0};
     size_t buffer_size_{0};
+    uint32_t mask_{0};
 };
 
 } // namespace internal

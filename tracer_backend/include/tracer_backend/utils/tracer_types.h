@@ -4,6 +4,21 @@
 #include <stdint.h>
 #include <stdbool.h>
 
+// Alignment helper
+#if defined(__cplusplus)
+  #define ADA_ALIGNAS(x) alignas(x)
+#else
+  #define ADA_ALIGNAS(x) __attribute__((aligned(x)))
+#endif
+
+// Public constants that may be needed by API users
+#ifndef CACHE_LINE_SIZE
+#define CACHE_LINE_SIZE 64
+#endif
+#ifndef MAX_THREADS
+#define MAX_THREADS 64
+#endif
+
 // Event kinds
 typedef enum {
     EVENT_KIND_CALL = 1,
@@ -74,13 +89,20 @@ typedef struct __attribute__((packed)) {
 typedef struct {
     uint32_t magic;         // 0xADA0
     uint32_t version;       // Format version
-    uint32_t capacity;      // Number of events
-    uint32_t write_pos;     // Write position (use atomic ops!)
-    uint32_t read_pos;      // Read position (use atomic ops!)
-    // Overflow metrics (incremented when writes occur on full buffer)
-    uint64_t overflow_count;
-    // Reserved for future expansion (layout aligns with C and C++)
-    uint32_t _reserved[9];
+    uint32_t capacity;      // Number of events (power-of-two)
+    uint32_t _reserved0;    // Reserved/padding
+
+    // Producer cache line
+    ADA_ALIGNAS(CACHE_LINE_SIZE) uint32_t write_pos; // Write position (use atomic ops!)
+    uint32_t _pad_producer[15];
+
+    // Consumer cache line
+    ADA_ALIGNAS(CACHE_LINE_SIZE) uint32_t read_pos;  // Read position (use atomic ops!)
+    uint32_t _pad_consumer[15];
+
+    // Metrics/cache
+    uint64_t overflow_count;  // Incremented when writes occur on full buffer
+    uint32_t _reserved[8];
 } RingBufferHeader;
 #endif
 
@@ -126,9 +148,5 @@ typedef struct {
 typedef struct Lane Lane;
 typedef struct ThreadLaneSet ThreadLaneSet;
 typedef struct ThreadRegistry ThreadRegistry;
-
-// Public constants that may be needed by API users
-#define MAX_THREADS 64
-#define CACHE_LINE_SIZE 64
 
 #endif // TRACER_TYPES_H

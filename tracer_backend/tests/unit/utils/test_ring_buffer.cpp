@@ -6,6 +6,8 @@
 #include <thread>
 #include <atomic>
 #include <cstring>
+#include <algorithm>
+#include <chrono>
 
 extern "C" {
     #include <tracer_backend/utils/ring_buffer.h>
@@ -57,7 +59,9 @@ TEST_F(RingBufferTest, ring_buffer__create_with_valid_memory__then_returns_valid
     
     // Assert
     ASSERT_NE(rb, nullptr) << "Failed to create ring buffer";
-    EXPECT_EQ(ring_buffer_get_capacity(rb), capacity);
+    auto eff_cap = ring_buffer_get_capacity(rb);
+    ASSERT_NE(eff_cap, 0u);
+    EXPECT_EQ((eff_cap & (eff_cap - 1)), 0u) << "Capacity must be power-of-two";
     EXPECT_TRUE(ring_buffer_is_empty(rb));
     EXPECT_FALSE(ring_buffer_is_full(rb));
 }
@@ -108,8 +112,10 @@ TEST_F(RingBufferTest, ring_buffer__fill_and_drain__then_handles_capacity_correc
     
     RingBuffer* test_rb = ring_buffer_create(test_memory, test_buffer_size, sizeof(TestEvent));
     
-    // Fill the buffer - exact same loop as C test
-    for (size_t i = 0; i < test_capacity - 1; i++) { // -1 because ring buffer keeps one empty slot
+    auto eff_cap = ring_buffer_get_capacity(test_rb);
+    ASSERT_GT(eff_cap, 1u);
+    // Fill the buffer up to effective capacity - 1 (one slot kept empty)
+    for (size_t i = 0; i < eff_cap - 1; i++) {
         TestEvent event = {
             .id = i,
             .timestamp = i * 1000,
@@ -129,9 +135,9 @@ TEST_F(RingBufferTest, ring_buffer__fill_and_drain__then_handles_capacity_correc
     EXPECT_GT(after, before) << "Overflow counter should increment on full write";
     
     // Drain all events
-    TestEvent events[50];
-    size_t read_count = ring_buffer_read_batch(test_rb, events, 50);
-    ASSERT_EQ(read_count, test_capacity - 1);
+    TestEvent events[256];
+    size_t read_count = ring_buffer_read_batch(test_rb, events, sizeof(events)/sizeof(events[0]));
+    ASSERT_EQ(read_count, eff_cap - 1);
     
     // Verify events
     for (size_t i = 0; i < read_count; i++) {
@@ -289,11 +295,16 @@ TEST_P(RingBufferSizeTest, ring_buffer__various_capacities__then_create_success)
     rb = ring_buffer_create(memory.get(), buffer_size, sizeof(TestEvent));
     
     // Assert
+    if (capacity < 2) {
+        EXPECT_EQ(rb, nullptr);
+        return;
+    }
     ASSERT_NE(rb, nullptr);
-    EXPECT_EQ(ring_buffer_get_capacity(rb), capacity);
-    
-    // Test can write up to capacity - 1 (ring buffer keeps one slot empty)
-    for (size_t i = 0; i < capacity - 1; i++) {
+    auto eff_cap = ring_buffer_get_capacity(rb);
+    ASSERT_NE(eff_cap, 0u);
+    EXPECT_EQ((eff_cap & (eff_cap - 1)), 0u);
+    // Test can write up to eff_cap - 1 (ring buffer keeps one slot empty)
+    for (size_t i = 0; i < eff_cap - 1; i++) {
         TestEvent event = {.id = i};
         EXPECT_TRUE(ring_buffer_write(rb, &event)) << "Failed to write event " << i;
     }
@@ -316,3 +327,71 @@ INSTANTIATE_TEST_SUITE_P(
         return "Capacity" + std::to_string(info.param);
     }
 );
+
+// Alignment test: producer/consumer fields should be on separate cache lines
+TEST_F(RingBufferTest, ring_buffer__header_alignment__then_no_false_sharing) {
+    rb = ring_buffer_create(memory.get(), buffer_size, sizeof(TestEvent));
+    ASSERT_NE(rb, nullptr);
+    RingBufferHeader* hdr = ring_buffer_get_header(rb);
+    ASSERT_NE(hdr, nullptr);
+    uintptr_t wp = reinterpret_cast<uintptr_t>(&hdr->write_pos);
+    uintptr_t rp = reinterpret_cast<uintptr_t>(&hdr->read_pos);
+    EXPECT_EQ(wp % CACHE_LINE_SIZE, 0u) << "write_pos should be cache-line aligned";
+    EXPECT_EQ(rp % CACHE_LINE_SIZE, 0u) << "read_pos should be cache-line aligned";
+    EXPECT_NE(wp / CACHE_LINE_SIZE, rp / CACHE_LINE_SIZE) << "write/read should not share cache line";
+}
+
+// Lightweight performance smoke tests (kept small for CI stability)
+TEST(RingBufferPerf, ring_buffer__throughput_smoke__then_reasonable) {
+    struct Ev { uint64_t a, b; };
+    const size_t cap = 8192; // events requested (effective will be pow2)
+    const size_t buf_size = sizeof(RingBufferHeader) + cap * sizeof(Ev);
+    auto mem = std::make_unique<uint8_t[]>(buf_size);
+    memset(mem.get(), 0, buf_size);
+    RingBuffer* rb = ring_buffer_create(mem.get(), buf_size, sizeof(Ev));
+    ASSERT_NE(rb, nullptr);
+    Ev ev{1,2}, out{};
+    using clock = std::chrono::high_resolution_clock;
+    const size_t N = 200000; // 200k ops
+    auto t0 = clock::now();
+    size_t w = 0, r = 0;
+    for (size_t i = 0; i < N; i++) {
+        while (!ring_buffer_write(rb, &ev)) { (void)ring_buffer_read(rb, &out); r++; }
+        w++;
+        (void)ring_buffer_read(rb, &out); r++;
+    }
+    auto t1 = clock::now();
+    double secs = std::chrono::duration<double>(t1 - t0).count();
+    double ops = (w + r) / secs;
+    // Expect at least 0.5M ops/sec in debug on typical machines
+    EXPECT_GT(ops, 5e5) << "Throughput too low: " << ops << " ops/s";
+    ring_buffer_destroy(rb);
+}
+
+TEST(RingBufferPerf, ring_buffer__latency_smoke__p99_under_budget) {
+    struct Ev { uint64_t a, b; };
+    const size_t cap = 4096;
+    const size_t buf_size = sizeof(RingBufferHeader) + cap * sizeof(Ev);
+    auto mem = std::make_unique<uint8_t[]>(buf_size);
+    memset(mem.get(), 0, buf_size);
+    RingBuffer* rb = ring_buffer_create(mem.get(), buf_size, sizeof(Ev));
+    ASSERT_NE(rb, nullptr);
+    Ev ev{1,2}, out{};
+    using clock = std::chrono::high_resolution_clock;
+    const size_t N = 20000; // samples
+    std::vector<uint64_t> lat;
+    lat.reserve(N);
+    for (size_t i = 0; i < N; i++) {
+        auto t0 = clock::now();
+        (void)ring_buffer_write(rb, &ev);
+        (void)ring_buffer_read(rb, &out);
+        auto t1 = clock::now();
+        lat.push_back(std::chrono::duration_cast<std::chrono::nanoseconds>(t1 - t0).count());
+    }
+    std::sort(lat.begin(), lat.end());
+    size_t idx = static_cast<size_t>(N * 0.99);
+    uint64_t p99 = lat[std::min(idx, N - 1)];
+    // Keep a lenient budget for varied environments (< 50us)
+    EXPECT_LT(p99, 50000u) << "p99 latency too high: " << p99 << " ns";
+    ring_buffer_destroy(rb);
+}
