@@ -160,9 +160,7 @@ fn main() {
         ("build/test_thread_registry", "test/test_thread_registry"),
         ("build/tests/unit/utils/test_thread_registry", "test/test_thread_registry"),
         ("out/bin/test_thread_registry", "test/test_thread_registry"),
-        ("build/test_thread_registry_cpp", "test/test_thread_registry_cpp"),
-        ("build/tests/unit/utils/test_thread_registry_cpp", "test/test_thread_registry_cpp"),
-        ("out/bin/test_thread_registry_cpp", "test/test_thread_registry_cpp"),
+        // Note: test_thread_registry_cpp is not built; entries removed
         // Controller unit tests
         ("build/test_spawn_method", "test/test_spawn_method"),
         ("build/tests/unit/controller/test_spawn_method", "test/test_spawn_method"),

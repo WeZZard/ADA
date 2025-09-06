@@ -233,9 +233,12 @@ mod tests {
     }
     
     // Helper function to run C/C++ tests with timeout and better error handling
+    // Robustly captures stdout/stderr concurrently to prevent pipe deadlocks.
     fn run_c_test(test_name: &str) -> Result<(), String> {
         use std::time::Duration;
+        use std::io::Read;
         use std::process::Stdio;
+        use std::thread;
         
         // Use absolute paths anchored at the workspace root to avoid cwd issues
         let workspace_root: &str = env!("ADA_WORKSPACE_ROOT");
@@ -277,7 +280,7 @@ mod tests {
             }
         }
 
-        // Spawn process with better error handling
+        // Spawn process with stdout/stderr piped (drained concurrently below)
         let mut cmd = Command::new(test_path);
         cmd.stdout(Stdio::piped())
            .stderr(Stdio::piped());
@@ -299,6 +302,26 @@ mod tests {
                     format!("Failed to spawn {}: {}", test_name, e)
                 }
             })?;
+
+        // Take stdout/stderr and drain them concurrently to avoid pipe buffering deadlocks
+        let stdout_handle = child.stdout.take();
+        let stderr_handle = child.stderr.take();
+
+        let stdout_thread = stdout_handle.map(|mut out| {
+            thread::spawn(move || {
+                let mut buf = Vec::new();
+                let _ = out.read_to_end(&mut buf);
+                buf
+            })
+        });
+
+        let stderr_thread = stderr_handle.map(|mut err| {
+            thread::spawn(move || {
+                let mut buf = Vec::new();
+                let _ = err.read_to_end(&mut buf);
+                buf
+            })
+        });
         
         // Set timeout (60 seconds for regular tests, 120 for integration tests)
         let timeout_secs = if test_name.contains("integration") { 120 } else { 60 };
@@ -306,29 +329,39 @@ mod tests {
         
         // Simple timeout implementation using try_wait
         let start = std::time::Instant::now();
-        let output = loop {
+        let status = loop {
             match child.try_wait() {
-                Ok(Some(_)) => {
-                    // Process finished, collect output
-                    break child.wait_with_output()
-                        .map_err(|e| format!("Failed to read output: {}", e))?;
-                }
+                Ok(Some(status)) => break status,
                 Ok(None) => {
-                    // Still running, check timeout
                     if start.elapsed() > timeout {
-                        // Timeout exceeded, kill the process
+                        // Timeout exceeded, kill the process (and its group on Unix)
                         #[cfg(unix)]
                         {
-                            // Kill the entire process group
-                            unsafe {
-                                libc::killpg(child.id() as i32, libc::SIGKILL);
-                            }
+                            unsafe { libc::killpg(child.id() as i32, libc::SIGKILL) };
                         }
                         #[cfg(not(unix))]
                         {
-                            child.kill().ok();
+                            let _ = child.kill();
                         }
-                        
+                        // Ensure child reaps
+                        let _ = child.wait();
+
+                        // Join output threads after kill
+                        let stdout_bytes = stdout_thread
+                            .and_then(|h| h.join().ok())
+                            .unwrap_or_default();
+                        let stderr_bytes = stderr_thread
+                            .and_then(|h| h.join().ok())
+                            .unwrap_or_default();
+
+                        // Print captured output for diagnostics
+                        if !stdout_bytes.is_empty() {
+                            print!("{}", String::from_utf8_lossy(&stdout_bytes));
+                        }
+                        if !stderr_bytes.is_empty() {
+                            eprint!("{}", String::from_utf8_lossy(&stderr_bytes));
+                        }
+
                         return Err(format!(
                             "❌ TIMEOUT: {} exceeded {} second limit\n\
                             This test may be deadlocked or in an infinite loop.\n\
@@ -336,24 +369,29 @@ mod tests {
                             test_name, timeout_secs, test_path.display()
                         ));
                     }
-                    // Wait a bit before checking again
-                    std::thread::sleep(Duration::from_millis(100));
+                    thread::sleep(Duration::from_millis(100));
                 }
-                Err(e) => {
-                    return Err(format!("Failed to wait for child process: {}", e));
-                }
+                Err(e) => return Err(format!("Failed to wait for child process: {}", e)),
             }
         };
+
+        // Child finished; collect captured output
+        let stdout_bytes = stdout_thread
+            .and_then(|h| h.join().ok())
+            .unwrap_or_default();
+        let stderr_bytes = stderr_thread
+            .and_then(|h| h.join().ok())
+            .unwrap_or_default();
         
         // Print captured output
-        if !output.stdout.is_empty() {
-            print!("{}", String::from_utf8_lossy(&output.stdout));
+        if !stdout_bytes.is_empty() {
+            print!("{}", String::from_utf8_lossy(&stdout_bytes));
         }
-        if !output.stderr.is_empty() {
-            eprint!("{}", String::from_utf8_lossy(&output.stderr));
+        if !stderr_bytes.is_empty() {
+            eprint!("{}", String::from_utf8_lossy(&stderr_bytes));
         }
 
-        if !output.status.success() {
+        if !status.success() {
             // Enhanced error diagnostics
             eprintln!("\n❌ Test {} failed", test_name);
             eprintln!("═══════════════════════════════════════════");
@@ -362,7 +400,7 @@ mod tests {
             #[cfg(unix)]
             {
                 use std::os::unix::process::ExitStatusExt;
-                if let Some(signal) = output.status.signal() {
+                if let Some(signal) = status.signal() {
                     let signal_name = match signal {
                         11 => "SIGSEGV (Segmentation fault)",
                         6 => "SIGABRT (Abort)",
@@ -401,7 +439,7 @@ mod tests {
             eprintln!("Test binary: {}", test_path.display());
             eprintln!("Working directory: {}", 
                      std::env::current_dir().unwrap_or_default().display());
-            eprintln!("Exit status: {}", output.status);
+            eprintln!("Exit status: {}", status);
             
             // Show relevant environment variables
             eprintln!("\nEnvironment variables:");
@@ -412,7 +450,7 @@ mod tests {
             }
             eprintln!("═══════════════════════════════════════════");
             
-            return Err(format!("{} failed with status: {}", test_name, output.status));
+            return Err(format!("{} failed with status: {}", test_name, status));
         }
 
         Ok(())
@@ -469,10 +507,7 @@ mod tests {
         run_c_test("test_thread_registry").expect("Thread registry test failed");
     }
     
-    #[test]
-    fn test_thread_registry_cpp() {
-        run_c_test("test_thread_registry_cpp").expect("Thread registry C++ test failed");
-    }
+    // Removed: test_thread_registry_cpp (no corresponding CMake target is built)
 
     #[test]
     #[serial]
