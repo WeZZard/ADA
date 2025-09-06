@@ -539,10 +539,17 @@ int FridaController::install_hooks() {
 }
 
 int FridaController::inject_agent(const char* agent_path) {
-    // This is a simplified placeholder - full implementation would be similar
-    // to install_hooks but with a specific agent path
-    printf("[Controller] Injecting agent: %s\n", agent_path);
-    return 0;
+    // Delegate to install_hooks flow after ensuring the given path is used
+    // Set ADA_AGENT_RPATH_SEARCH_PATHS to include the provided directory
+    if (!agent_path) return -1;
+    std::string dir;
+    if (const char* slash = strrchr(agent_path, '/')) {
+        dir.assign(agent_path, slash - agent_path);
+    }
+    if (!dir.empty()) {
+        setenv("ADA_AGENT_RPATH_SEARCH_PATHS", dir.c_str(), 1);
+    }
+    return install_hooks();
 }
 
 // ============================================================================
