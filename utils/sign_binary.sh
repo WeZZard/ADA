@@ -67,7 +67,6 @@ EOF
         else
             echo "Local session - ad-hoc signing sufficient"
             NEEDS_DEVELOPER_ID=false
-            exit 0;
         fi
         
         # Determine signing identity
@@ -121,16 +120,24 @@ EOF
             exit 1
             
         else
-            # Local session, use ad-hoc
+            # Local session, use ad-hoc signing with entitlements
             echo "Using ad-hoc signing for local testing"
-
-            exit 0
+            codesign --remove-signature "$BINARY_PATH" 2>/dev/null || true
+            if codesign --force \
+                     --sign - \
+                     --entitlements "$ENTITLEMENTS_FILE" \
+                     "$BINARY_PATH" 2>&1; then
+                echo -e "${GREEN}✅ Binary ad-hoc signed with entitlements${NC}"
+            else
+                echo -e "${RED}Ad-hoc signing failed${NC}"
+                exit 1
+            fi
         fi
         
         # Verify signature
         echo ""
         echo "Signature verification:"
-        codesign -dv "$BINARY_PATH" 2>&1 | grep -E "Signature|Authority|TeamIdentifier" || true
+        codesign -dv "$BINARY_PATH" 2>&1 | grep -E "Signature|Authority|TeamIdentifier|Identifier" || true
         ;;
         
     Linux)
