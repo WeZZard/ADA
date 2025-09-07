@@ -17,7 +17,11 @@ REPORTS_DIR="${REPO_ROOT}/target/coverage_report"
 mkdir -p "${REPORTS_DIR}"
 mkdir -p "${COVERAGE_DIR}"
 
-echo -e "${BLUE}[POST-COMMIT]${NC} Generating coverage reports in background..."
+LOG_DIR="${REPO_ROOT}/target/logs"
+mkdir -p "$LOG_DIR"
+TS=$(date +"%Y%m%d_%H%M%S")
+LOG_FILE="${LOG_DIR}/post_commit_${TS}.log"
+echo -e "${BLUE}[POST-COMMIT]${NC} Coverage task started; logs: ${LOG_FILE}"
 
 # Function to generate reports
 generate_reports() {
@@ -149,14 +153,7 @@ EOF
     echo "==================================================================" >> "$TREND_REPORT"
 }
 
-# Run report generation in background
-{
-    generate_reports
-} &
-
-# Store background job PID
-BG_PID=$!
-echo -e "${BLUE}[POST-COMMIT]${NC} Coverage report generation started (PID: $BG_PID)"
+nohup bash -c 'generate_reports' >> "$LOG_FILE" 2>&1 &
 echo -e "${BLUE}[POST-COMMIT]${NC} Reports will be available at: ${REPORTS_DIR}"
 
 # Git LFS hook
