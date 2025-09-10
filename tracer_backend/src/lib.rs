@@ -223,7 +223,7 @@ mod tests {
     fn run_c_test(test_name: &str) -> Result<(), String> {
         use std::time::Duration;
         use std::io::Read;
-        use std::process::Stdio;
+        use std::process::{Stdio, Command};
         use std::thread;
         
         // Use absolute paths anchored at the workspace root to avoid cwd issues
