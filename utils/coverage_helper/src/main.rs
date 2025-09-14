@@ -212,8 +212,13 @@ fn collect_coverage() -> Result<()> {
 
     // Collect unified Rust + C++ coverage (they run together via cargo test)
     let unified_lcov = report_dir.join("unified.lcov");
-    if let Ok(_) = collect_unified_coverage(&workspace, &coverage_dir, &unified_lcov) {
-        lcov_files.push(unified_lcov);
+    match collect_unified_coverage(&workspace, &coverage_dir, &unified_lcov) {
+        Ok(_) => {
+            lcov_files.push(unified_lcov);
+        }
+        Err(e) => {
+            eprintln!("Warning: Failed to collect unified coverage: {}", e);
+        }
     }
 
     // Collect Python coverage (separate ecosystem)
@@ -222,13 +227,15 @@ fn collect_coverage() -> Result<()> {
         lcov_files.push(python_lcov);
     }
 
-    // Merge all LCOV files if needed
+    // Always create merged.lcov for consistency (even if just one file)
+    let merged_lcov = report_dir.join("merged.lcov");
     if lcov_files.len() > 1 {
-        let merged_lcov = report_dir.join("merged.lcov");
         toolchains::merge_lcov_files(&lcov_files, &merged_lcov)?;
         println!("\nMerged coverage data to: {}", merged_lcov.display());
     } else if lcov_files.len() == 1 {
-        println!("\nCoverage data saved to: {}", lcov_files[0].display());
+        // Copy the single file as merged.lcov for consistency
+        std::fs::copy(&lcov_files[0], &merged_lcov)?;
+        println!("\nCoverage data saved to: {}", merged_lcov.display());
     } else {
         println!("\nNo coverage data collected.");
     }
@@ -443,9 +450,73 @@ fn collect_unified_coverage(workspace: &Path, coverage_dir: &Path, output_lcov: 
         }
     }
 
+    // CRITICAL: Include C++ static libraries for source mapping
+    // The test binaries are statically linked, but llvm-cov needs the original
+    // libraries to map coverage data back to C++ source files
+    // Use the predictable path created by tracer_backend's build.rs
+    let mut cpp_artifacts = Vec::new();
+
+    // The tracer_backend build.rs copies all libraries to a predictable location:
+    // target/{profile}/tracer_backend/lib/
+    let cpp_lib_dir = workspace.join("target").join(profile).join("tracer_backend").join("lib");
+    if cpp_lib_dir.exists() {
+        if let Ok(entries) = fs::read_dir(&cpp_lib_dir) {
+            for entry in entries.filter_map(|e| e.ok()) {
+                let path = entry.path();
+                // Include static libraries (.a files) which contain the compiled C++ code
+                if path.is_file() && path.extension().map_or(false, |ext| ext == "a") {
+                    cpp_artifacts.push(path);
+                }
+            }
+        }
+    }
+
+    // Also find the actual build directory to include object files
+    // These provide more granular coverage mapping
+    let build_pattern = workspace.join("target").join(profile).join("build");
+    if build_pattern.exists() {
+        // Find the most recent tracer_backend build directory
+        let mut tracer_backend_dirs: Vec<_> = fs::read_dir(&build_pattern)?
+            .filter_map(|entry| entry.ok())
+            .filter(|entry| {
+                entry.file_name().to_str()
+                    .map_or(false, |name| name.starts_with("tracer_backend-"))
+            })
+            .collect();
+
+        // Sort by modification time to get the most recent build
+        tracer_backend_dirs.sort_by_key(|dir| {
+            dir.metadata()
+                .and_then(|m| m.modified())
+                .unwrap_or(std::time::SystemTime::UNIX_EPOCH)
+        });
+
+        if let Some(latest_build) = tracer_backend_dirs.last() {
+            let out_dir = latest_build.path().join("out");
+
+            // Collect object files from the build directory
+            let build_subdir = out_dir.join("build");
+            if build_subdir.exists() {
+                for entry in WalkDir::new(&build_subdir)
+                    .into_iter()
+                    .filter_map(|e| e.ok())
+                    .filter(|e| e.path().extension().map_or(false, |ext| ext == "o"))
+                {
+                    cpp_artifacts.push(entry.path().to_path_buf());
+                }
+            }
+        }
+    }
+
+    if !cpp_artifacts.is_empty() {
+        println!("  Found {} C++ artifacts (libraries/objects) for source mapping", cpp_artifacts.len());
+        // Add C++ artifacts to the binaries list for llvm-cov
+        test_binaries.extend(cpp_artifacts);
+    }
+
     if !test_binaries.is_empty() {
-        println!("  Found {} test binaries (Rust + C++) for coverage mapping", test_binaries.len());
-        // Export to LCOV format with all binaries
+        println!("  Total {} binaries/artifacts for coverage mapping", test_binaries.len());
+        // Export to LCOV format with all binaries and artifacts
         toolchains::export_lcov(&toolchain, &test_binaries, &profdata_path, output_lcov)?;
         println!("  Unified coverage saved to: {}", output_lcov.display());
     } else {
@@ -455,19 +526,8 @@ fn collect_unified_coverage(workspace: &Path, coverage_dir: &Path, output_lcov: 
     Ok(())
 }
 
-/// Legacy function kept for backwards compatibility.
-/// C++ coverage is now collected as part of unified coverage.
-#[deprecated(note = "Use collect_unified_coverage instead")]
-fn _collect_cpp_coverage_legacy(workspace: &Path, coverage_dir: &Path, output_lcov: &Path) -> Result<()> {
-    // This function is no longer used but kept for reference
-    // C++ tests are now run via Rust wrappers during 'cargo test'
-    // and their coverage is collected in collect_unified_coverage()
-    Ok(())
-}
-
-/// Placeholder for separate C++ coverage if needed in future.
-/// C++ coverage is now collected as part of unified coverage since
-/// C++ tests run via Rust wrappers during 'cargo test'.
+// Note: C++ coverage is now collected as part of unified coverage since
+// C++ tests run via Rust wrappers during 'cargo test'
 
 fn generate_report(format: &str) -> Result<()> {
     println!("Generating {} coverage report...", format);
@@ -535,14 +595,26 @@ fn generate_report(format: &str) -> Result<()> {
             }
         }
         "text" => {
-            // Generate text summary
-            let profdata = coverage_dir.join("rust.profdata");
-            if profdata.exists() {
-                Command::new("llvm-cov")
-                    .args(&["report", "--instr-profile"])
-                    .arg(&profdata)
-                    .status()
-                    .context("Failed to generate text report")?;
+            // Generate text summary from LCOV data
+            // First try merged.lcov in coverage_report directory
+            let report_dir = workspace.join("target").join("coverage_report");
+            let merged_lcov = report_dir.join("merged.lcov");
+
+            if merged_lcov.exists() {
+                calculate_coverage_percentage(&merged_lcov)?;
+            } else {
+                // Try to find any LCOV file
+                let coverage_lcov = coverage_dir.join("coverage.lcov");
+                let unified_lcov = report_dir.join("unified.lcov");
+
+                if coverage_lcov.exists() {
+                    calculate_coverage_percentage(&coverage_lcov)?;
+                } else if unified_lcov.exists() {
+                    calculate_coverage_percentage(&unified_lcov)?;
+                } else {
+                    println!("No LCOV data found for text report");
+                    println!("Run 'coverage_helper collect' first to generate coverage data");
+                }
             }
         }
         _ => {
@@ -555,28 +627,157 @@ fn generate_report(format: &str) -> Result<()> {
 
 fn calculate_coverage_percentage(lcov_file: &Path) -> Result<()> {
     let content = fs::read_to_string(lcov_file)?;
-    
+
     let mut lines_hit = 0;
     let mut lines_total = 0;
-    
+    let mut functions_hit = 0;
+    let mut functions_total = 0;
+    let mut branches_hit = 0;
+    let mut branches_total = 0;
+
+    // Track per-file statistics
+    let mut current_file: String;
+    let mut file_lines_hit = 0;
+    let mut file_lines_total = 0;
+    let mut file_functions_hit = 0;
+    let mut file_functions_total = 0;
+    let mut file_branches_hit = 0;
+    let mut file_branches_total = 0;
+    let mut skip_current_file = false;
+
     for line in content.lines() {
-        if line.starts_with("DA:") {
+        // Track source file changes
+        if let Some(file) = line.strip_prefix("SF:") {
+            current_file = file.to_string();
+
+            // Use centralized exclusion logic from dashboard module
+            skip_current_file = dashboard::should_exclude_from_coverage(&current_file);
+
+            file_lines_hit = 0;
+            file_lines_total = 0;
+            file_functions_hit = 0;
+            file_functions_total = 0;
+            file_branches_hit = 0;
+            file_branches_total = 0;
+        }
+        // Line coverage data
+        else if line.starts_with("DA:") && !skip_current_file {
             let parts: Vec<&str> = line[3..].split(',').collect();
             if parts.len() == 2 {
-                lines_total += 1;
+                file_lines_total += 1;
                 if let Ok(hits) = parts[1].parse::<i32>() {
                     if hits > 0 {
-                        lines_hit += 1;
+                        file_lines_hit += 1;
                     }
                 }
             }
         }
+        // Function coverage data
+        else if line.starts_with("FNDA:") && !skip_current_file {
+            let parts: Vec<&str> = line[5..].split(',').collect();
+            if parts.len() >= 2 {
+                if let Ok(hits) = parts[0].parse::<i32>() {
+                    file_functions_total += 1;
+                    if hits > 0 {
+                        file_functions_hit += 1;
+                    }
+                }
+            }
+        }
+        // Branch coverage data
+        else if line.starts_with("BRDA:") && !skip_current_file {
+            let parts: Vec<&str> = line[5..].split(',').collect();
+            if parts.len() >= 4 {
+                file_branches_total += 1;
+                // Check if branch was taken (not "-" or "0")
+                if parts[3] != "-" {
+                    if let Ok(taken) = parts[3].parse::<i32>() {
+                        if taken > 0 {
+                            file_branches_hit += 1;
+                        }
+                    }
+                }
+            }
+        }
+        // Summary lines - use these if available for more accurate counts
+        else if line.starts_with("LF:") && !skip_current_file {
+            if let Ok(total) = line[3..].parse::<u64>() {
+                file_lines_total = total as i32;
+            }
+        }
+        else if line.starts_with("LH:") && !skip_current_file {
+            if let Ok(hit) = line[3..].parse::<u64>() {
+                file_lines_hit = hit as i32;
+            }
+        }
+        else if line.starts_with("FNF:") && !skip_current_file {
+            if let Ok(total) = line[4..].parse::<u64>() {
+                file_functions_total = total as i32;
+            }
+        }
+        else if line.starts_with("FNH:") && !skip_current_file {
+            if let Ok(hit) = line[4..].parse::<u64>() {
+                file_functions_hit = hit as i32;
+            }
+        }
+        else if line.starts_with("BRF:") && !skip_current_file {
+            if let Ok(total) = line[4..].parse::<u64>() {
+                file_branches_total = total as i32;
+            }
+        }
+        else if line.starts_with("BRH:") && !skip_current_file {
+            if let Ok(hit) = line[4..].parse::<u64>() {
+                file_branches_hit = hit as i32;
+            }
+        }
+        // End of record - accumulate file stats
+        else if line == "end_of_record" {
+            lines_hit += file_lines_hit;
+            lines_total += file_lines_total;
+            functions_hit += file_functions_hit;
+            functions_total += file_functions_total;
+            branches_hit += file_branches_hit;
+            branches_total += file_branches_total;
+        }
     }
-    
+
+    // Display comprehensive coverage statistics
+    println!("\n📊 Coverage Summary:");
+    println!("═══════════════════════════════════════════════════");
+
+    // Line coverage
     if lines_total > 0 {
-        let percentage = (lines_hit as f64 / lines_total as f64) * 100.0;
-        println!("Total coverage: {:.2}% ({}/{} lines)", percentage, lines_hit, lines_total);
+        let line_percentage = (lines_hit as f64 / lines_total as f64) * 100.0;
+        println!("  Lines:     {:.2}% ({}/{} lines)", line_percentage, lines_hit, lines_total);
+    } else {
+        println!("  Lines:     No line coverage data");
     }
-    
+
+    // Function coverage
+    if functions_total > 0 {
+        let function_percentage = (functions_hit as f64 / functions_total as f64) * 100.0;
+        println!("  Functions: {:.2}% ({}/{} functions)", function_percentage, functions_hit, functions_total);
+    } else {
+        println!("  Functions: No function coverage data");
+    }
+
+    // Branch coverage
+    if branches_total > 0 {
+        let branch_percentage = (branches_hit as f64 / branches_total as f64) * 100.0;
+        println!("  Branches:  {:.2}% ({}/{} branches)", branch_percentage, branches_hit, branches_total);
+    } else {
+        println!("  Branches:  No branch coverage data");
+    }
+
+    // Overall coverage (weighted average if all metrics available)
+    if lines_total > 0 || functions_total > 0 || branches_total > 0 {
+        let total_items = lines_total + functions_total + branches_total;
+        let total_hits = lines_hit + functions_hit + branches_hit;
+        let overall_percentage = (total_hits as f64 / total_items as f64) * 100.0;
+        println!("═══════════════════════════════════════════════════");
+        println!("  Overall:   {:.2}% coverage", overall_percentage);
+    }
+
+    println!();
     Ok(())
 }

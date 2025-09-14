@@ -10,10 +10,14 @@ use std::process::Command;
 #[derive(Debug, Default, Clone)]
 pub struct ComponentMetrics {
     pub line_coverage: f64,
-    _function_coverage: f64,
-    _branch_coverage: f64,
+    pub function_coverage: f64,
+    pub branch_coverage: f64,
     pub lines_covered: usize,
     pub lines_total: usize,
+    pub functions_covered: usize,
+    pub functions_total: usize,
+    pub branches_covered: usize,
+    pub branches_total: usize,
 }
 
 /// Generate the HTML dashboard
@@ -106,8 +110,14 @@ fn parse_lcov_metrics(lcov_path: &Path) -> Result<HashMap<String, ComponentMetri
             let parts: Vec<&str> = line[3..].split(',').collect();
             if parts.len() == 2 {
                 let component = detect_component(&current_file);
+
+                // Skip dependencies and test files from coverage metrics
+                if component == "dependencies" || component == "test_files" {
+                    continue;
+                }
+
                 let is_covered = parts[1] != "0";
-                
+
                 // Update component metrics
                 component_data.entry(component.clone())
                     .and_modify(|m| {
@@ -116,41 +126,280 @@ fn parse_lcov_metrics(lcov_path: &Path) -> Result<HashMap<String, ComponentMetri
                             m.lines_covered += 1;
                         }
                     });
-                
+
+                // Update total metrics (only for actual project files)
+                if component != "other" {
+                    component_data.entry("total".to_string())
+                        .and_modify(|m| {
+                            m.lines_total += 1;
+                            if is_covered {
+                                m.lines_covered += 1;
+                            }
+                        });
+                }
+            }
+        } else if line.starts_with("FNDA:") {
+            // Function coverage data
+            let parts: Vec<&str> = line[5..].split(',').collect();
+            if parts.len() >= 2 {
+                let component = detect_component(&current_file);
+
+                // Skip dependencies and test files from coverage metrics
+                if component == "dependencies" || component == "test_files" {
+                    continue;
+                }
+
+                if let Ok(hits) = parts[0].parse::<i32>() {
+                    let is_covered = hits > 0;
+
+                    // Update component metrics
+                    component_data.entry(component.clone())
+                        .and_modify(|m| {
+                            m.functions_total += 1;
+                            if is_covered {
+                                m.functions_covered += 1;
+                            }
+                        });
+
+                    // Update total metrics (only for actual project files)
+                    if component != "other" {
+                        component_data.entry("total".to_string())
+                            .and_modify(|m| {
+                                m.functions_total += 1;
+                                if is_covered {
+                                    m.functions_covered += 1;
+                                }
+                            });
+                    }
+                }
+            }
+        } else if line.starts_with("BRDA:") {
+            // Branch coverage data
+            let parts: Vec<&str> = line[5..].split(',').collect();
+            if parts.len() >= 4 {
+                let component = detect_component(&current_file);
+                let is_covered = parts[3] != "-" && parts[3] != "0";
+
+                // Update component metrics
+                component_data.entry(component.clone())
+                    .and_modify(|m| {
+                        m.branches_total += 1;
+                        if is_covered {
+                            m.branches_covered += 1;
+                        }
+                    });
+
                 // Update total metrics
                 component_data.entry("total".to_string())
                     .and_modify(|m| {
-                        m.lines_total += 1;
+                        m.branches_total += 1;
                         if is_covered {
-                            m.lines_covered += 1;
+                            m.branches_covered += 1;
                         }
                     });
             }
+        } else if line.starts_with("LF:") {
+            // Summary line for lines found (use if more accurate than counting DA lines)
+            if let Ok(total) = line[3..].parse::<usize>() {
+                let component = detect_component(&current_file);
+                component_data.entry(component.clone())
+                    .and_modify(|m| {
+                        // Only update if we haven't counted DA lines yet or this is more accurate
+                        if m.lines_total == 0 {
+                            m.lines_total = total;
+                        }
+                    });
+            }
+        } else if line.starts_with("LH:") {
+            // Summary line for lines hit
+            if let Ok(hit) = line[3..].parse::<usize>() {
+                let component = detect_component(&current_file);
+                component_data.entry(component.clone())
+                    .and_modify(|m| {
+                        if m.lines_covered == 0 {
+                            m.lines_covered = hit;
+                        }
+                    });
+            }
+        } else if line.starts_with("FNF:") {
+            // Summary line for functions found
+            if let Ok(total) = line[4..].parse::<usize>() {
+                let component = detect_component(&current_file);
+
+                // Skip dependencies and test files
+                if component == "dependencies" || component == "test_files" {
+                    continue;
+                }
+
+                // Add to component totals (don't replace, accumulate from multiple files)
+                component_data.entry(component.clone())
+                    .and_modify(|m| {
+                        m.functions_total += total;
+                    });
+
+                // Also add to overall total (only for actual project files)
+                if component != "other" {
+                    component_data.entry("total".to_string())
+                        .and_modify(|m| {
+                            m.functions_total += total;
+                        });
+                }
+            }
+        } else if line.starts_with("FNH:") {
+            // Summary line for functions hit
+            if let Ok(hit) = line[4..].parse::<usize>() {
+                let component = detect_component(&current_file);
+
+                // Skip dependencies and test files
+                if component == "dependencies" || component == "test_files" {
+                    continue;
+                }
+
+                // Add to component coverage (accumulate from multiple files)
+                component_data.entry(component.clone())
+                    .and_modify(|m| {
+                        m.functions_covered += hit;
+                    });
+
+                // Also add to overall coverage (only for actual project files)
+                if component != "other" {
+                    component_data.entry("total".to_string())
+                        .and_modify(|m| {
+                            m.functions_covered += hit;
+                        });
+                }
+            }
+        } else if line.starts_with("BRF:") {
+            // Summary line for branches found
+            if let Ok(total) = line[4..].parse::<usize>() {
+                let component = detect_component(&current_file);
+
+                // Skip dependencies and test files
+                if component == "dependencies" || component == "test_files" {
+                    continue;
+                }
+
+                // Add to component totals (accumulate from multiple files)
+                component_data.entry(component.clone())
+                    .and_modify(|m| {
+                        m.branches_total += total;
+                    });
+
+                // Also add to overall total (only for actual project files)
+                if component != "other" {
+                    component_data.entry("total".to_string())
+                        .and_modify(|m| {
+                            m.branches_total += total;
+                        });
+                }
+            }
+        } else if line.starts_with("BRH:") {
+            // Summary line for branches hit
+            if let Ok(hit) = line[4..].parse::<usize>() {
+                let component = detect_component(&current_file);
+
+                // Skip dependencies and test files
+                if component == "dependencies" || component == "test_files" {
+                    continue;
+                }
+
+                // Add to component coverage (accumulate from multiple files)
+                component_data.entry(component.clone())
+                    .and_modify(|m| {
+                        m.branches_covered += hit;
+                    });
+
+                // Also add to overall coverage (only for actual project files)
+                if component != "other" {
+                    component_data.entry("total".to_string())
+                        .and_modify(|m| {
+                            m.branches_covered += hit;
+                        });
+                }
+            }
         }
     }
-    
-    // Calculate percentages
+
+    // Calculate percentages for all coverage types
     for (_, metrics) in component_data.iter_mut() {
         if metrics.lines_total > 0 {
-            metrics.line_coverage = 
+            metrics.line_coverage =
                 (metrics.lines_covered as f64 / metrics.lines_total as f64) * 100.0;
+        }
+        if metrics.functions_total > 0 {
+            metrics.function_coverage =
+                (metrics.functions_covered as f64 / metrics.functions_total as f64) * 100.0;
+        }
+        if metrics.branches_total > 0 {
+            metrics.branch_coverage =
+                (metrics.branches_covered as f64 / metrics.branches_total as f64) * 100.0;
         }
     }
     
     Ok(component_data)
 }
 
+/// Check if a file should be excluded from coverage metrics
+/// Returns true if the file is a dependency, test file, or other non-production code
+pub fn should_exclude_from_coverage(file_path: &str) -> bool {
+    // Dependencies
+    file_path.contains(".cargo/registry") ||
+    file_path.contains(".cargo/git") ||
+    file_path.contains("/rustc-") ||
+    file_path.contains("/private/tmp/") ||
+    file_path.contains("/third_parties/") ||
+    file_path.contains("third_parties/") ||
+    file_path.contains("/.rustup/") ||
+    file_path.contains("/target/") ||
+    // Test files
+    file_path.contains("/test/") ||
+    file_path.contains("/tests/") ||
+    file_path.contains("/benches/") ||
+    file_path.contains("/benchmarks/") ||
+    file_path.contains("/examples/") ||
+    file_path.contains("_test.") ||
+    file_path.contains("test_") ||
+    file_path.contains("_tests.") ||
+    file_path.contains("tests.rs") ||
+    file_path.contains("bench.rs") ||
+    file_path.contains("googletest") ||
+    file_path.contains("googlemock") ||
+    file_path.contains("gtest") ||
+    file_path.contains("gmock")
+}
+
 /// Detect which component a file belongs to
 fn detect_component(file_path: &str) -> String {
+    // Use centralized exclusion logic
+    if should_exclude_from_coverage(file_path) {
+        // Determine the specific type of exclusion for categorization
+        if file_path.contains(".cargo/registry") ||
+           file_path.contains(".cargo/git") ||
+           file_path.contains("/rustc-") ||
+           file_path.contains("/private/tmp/") ||
+           file_path.contains("/third_parties/") ||
+           file_path.contains("third_parties/") {
+            return "dependencies".to_string();
+        } else {
+            return "test_files".to_string();
+        }
+    }
+
+    // Detect actual project components
+    // Check tracer_backend first since it's more specific than tracer
     if file_path.contains("tracer_backend") {
         "tracer_backend".to_string()
-    } else if file_path.contains("tracer") {
+    } else if file_path.contains("/tracer/") || file_path.ends_with("/tracer") {
         "tracer".to_string()
     } else if file_path.contains("query_engine") {
         "query_engine".to_string()
     } else if file_path.contains("mcp_server") {
         "mcp_server".to_string()
+    } else if file_path.contains("coverage_helper") {
+        "coverage_helper".to_string()
     } else {
+        // For debugging - log unexpected files
+        eprintln!("Warning: Uncategorized file in coverage: {}", file_path);
         "other".to_string()
     }
 }
@@ -210,17 +459,62 @@ fn replace_placeholders(
         template = template.replace(&format!("{{{{{}}}}}", key), value);
     }
     
-    // Total coverage
+    // Total coverage with all metrics
     if let Some(total) = metrics.get("total") {
-        let status = get_status(total.line_coverage);
-        template = template.replace("{{TOTAL_COVERAGE}}", &format!("{:.1}", total.line_coverage));
+        // Calculate overall coverage (weighted average of all available metrics)
+        let mut total_items = 0;
+        let mut total_covered = 0;
+
+        if total.lines_total > 0 {
+            total_items += total.lines_total;
+            total_covered += total.lines_covered;
+        }
+        if total.functions_total > 0 {
+            total_items += total.functions_total;
+            total_covered += total.functions_covered;
+        }
+        if total.branches_total > 0 {
+            total_items += total.branches_total;
+            total_covered += total.branches_covered;
+        }
+
+        let overall_coverage = if total_items > 0 {
+            (total_covered as f64 / total_items as f64) * 100.0
+        } else {
+            0.0
+        };
+
+        let status = get_status(overall_coverage);
+        template = template.replace("{{TOTAL_COVERAGE}}", &format!("{:.1}", overall_coverage));
         template = template.replace("{{TOTAL_STATUS}}", &status);
         template = template.replace("{{TOTAL_LINES_COVERED}}", &total.lines_covered.to_string());
         template = template.replace("{{TOTAL_LINES}}", &total.lines_total.to_string());
-        template = template.replace("{{FUNC_COVERAGE}}", "N/A");
-        template = template.replace("{{FUNC_STATUS}}", "warning");
-        template = template.replace("{{BRANCH_COVERAGE}}", "N/A");
-        template = template.replace("{{BRANCH_STATUS}}", "warning");
+
+        // Function coverage
+        if total.functions_total > 0 {
+            template = template.replace("{{FUNC_COVERAGE}}", &format!("{:.1}", total.function_coverage));
+            template = template.replace("{{FUNC_STATUS}}", &get_status(total.function_coverage));
+            template = template.replace("{{FUNC_COVERED}}", &total.functions_covered.to_string());
+            template = template.replace("{{FUNC_TOTAL}}", &total.functions_total.to_string());
+        } else {
+            template = template.replace("{{FUNC_COVERAGE}}", "N/A");
+            template = template.replace("{{FUNC_STATUS}}", "warning");
+            template = template.replace("{{FUNC_COVERED}}", "0");
+            template = template.replace("{{FUNC_TOTAL}}", "0");
+        }
+
+        // Branch coverage
+        if total.branches_total > 0 {
+            template = template.replace("{{BRANCH_COVERAGE}}", &format!("{:.1}", total.branch_coverage));
+            template = template.replace("{{BRANCH_STATUS}}", &get_status(total.branch_coverage));
+            template = template.replace("{{BRANCH_COVERED}}", &total.branches_covered.to_string());
+            template = template.replace("{{BRANCH_TOTAL}}", &total.branches_total.to_string());
+        } else {
+            template = template.replace("{{BRANCH_COVERAGE}}", "N/A");
+            template = template.replace("{{BRANCH_STATUS}}", "warning");
+            template = template.replace("{{BRANCH_COVERED}}", "0");
+            template = template.replace("{{BRANCH_TOTAL}}", "0");
+        }
     }
     
     // Component metrics
@@ -246,14 +540,33 @@ fn replace_placeholders(
             &format!("{{{{{}_LINE_STATUS}}}}", template_prefix),
             &status,
         );
-        template = template.replace(
-            &format!("{{{{{}_FUNC_COV}}}}", template_prefix),
-            "N/A",
-        );
-        template = template.replace(
-            &format!("{{{{{}_BRANCH_COV}}}}", template_prefix),
-            "N/A",
-        );
+
+        // Function coverage for component
+        if comp_metrics.functions_total > 0 {
+            template = template.replace(
+                &format!("{{{{{}_FUNC_COV}}}}", template_prefix),
+                &format!("{:.1}", comp_metrics.function_coverage),
+            );
+        } else {
+            template = template.replace(
+                &format!("{{{{{}_FUNC_COV}}}}", template_prefix),
+                "N/A",
+            );
+        }
+
+        // Branch coverage for component
+        if comp_metrics.branches_total > 0 {
+            template = template.replace(
+                &format!("{{{{{}_BRANCH_COV}}}}", template_prefix),
+                &format!("{:.1}", comp_metrics.branch_coverage),
+            );
+        } else {
+            template = template.replace(
+                &format!("{{{{{}_BRANCH_COV}}}}", template_prefix),
+                "N/A",
+            );
+        }
+
         template = template.replace(
             &format!("{{{{{}_STATUS}}}}", template_prefix),
             &status,
@@ -401,11 +714,8 @@ fn generate_uncovered_lines_report(lcov_path: &Path, report_dir: &Path) -> Resul
                 if parts.len() == 2 {
                     if let (Ok(line_num), Ok(hits)) = (parts[0].parse::<u32>(), parts[1].parse::<u32>()) {
                         if hits == 0 && !current_file.is_empty() {
-                            // Only include project files, not external dependencies
-                            if current_file.contains("/Projects/ADA/") && 
-                               !current_file.contains("/.cargo/") && 
-                               !current_file.contains("/target/") &&
-                               !current_file.contains("/.rustup/") {
+                            // Use centralized exclusion logic
+                            if !should_exclude_from_coverage(&current_file) && current_file.contains("/Projects/ADA/") {
                                 // Make path relative to workspace for readability
                                 let relative_path = current_file
                                     .strip_prefix("/Users/wezzard/Projects/ADA/")

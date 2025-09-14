@@ -86,9 +86,10 @@ pub fn detect_rust_toolchain() -> Result<LlvmToolchain> {
 }
 
 /// Detect the appropriate LLVM toolchain for C/C++ code
+#[allow(dead_code)]
 pub fn detect_cpp_toolchain() -> Result<LlvmToolchain> {
     println!("Detecting C/C++ LLVM toolchain...");
-    
+
     // On macOS, prefer Xcode's LLVM tools
     #[cfg(target_os = "macos")]
     {
@@ -96,17 +97,17 @@ pub fn detect_cpp_toolchain() -> Result<LlvmToolchain> {
             return Ok(toolchain);
         }
     }
-    
+
     // Try system LLVM tools
     if let Ok(toolchain) = detect_system_toolchain() {
         return Ok(toolchain);
     }
-    
+
     // Try Homebrew LLVM
     if let Ok(toolchain) = detect_homebrew_toolchain() {
         return Ok(toolchain);
     }
-    
+
     anyhow::bail!(
         "Could not find C/C++ LLVM tools. Please install:\n\
          - macOS: Xcode Command Line Tools (xcode-select --install)\n\
@@ -116,6 +117,7 @@ pub fn detect_cpp_toolchain() -> Result<LlvmToolchain> {
 
 /// Detect Xcode's LLVM toolchain on macOS
 #[cfg(target_os = "macos")]
+#[allow(dead_code)]
 fn detect_xcode_toolchain() -> Result<LlvmToolchain> {
     // Check if Xcode Command Line Tools are installed
     let output = Command::new("xcode-select")
@@ -163,6 +165,7 @@ fn detect_xcode_toolchain() -> Result<LlvmToolchain> {
 }
 
 /// Detect system-installed LLVM toolchain
+#[allow(dead_code)]
 fn detect_system_toolchain() -> Result<LlvmToolchain> {
     // Try to find in PATH
     let profdata = which::which("llvm-profdata")
@@ -182,6 +185,7 @@ fn detect_system_toolchain() -> Result<LlvmToolchain> {
 }
 
 /// Detect Homebrew-installed LLVM toolchain
+#[allow(dead_code)]
 fn detect_homebrew_toolchain() -> Result<LlvmToolchain> {
     let homebrew_paths = vec![
         "/opt/homebrew/opt/llvm/bin",     // ARM64 Macs
@@ -242,7 +246,7 @@ pub fn merge_profdata(
     Ok(())
 }
 
-/// Export coverage to LCOV format
+/// Export coverage to LCOV format with function and branch coverage
 pub fn export_lcov(
     toolchain: &LlvmToolchain,
     binaries: &[PathBuf],
@@ -252,31 +256,46 @@ pub fn export_lcov(
     if binaries.is_empty() {
         anyhow::bail!("No binaries to export coverage for");
     }
-    
-    println!("  Exporting LCOV using {}", toolchain.source);
-    
+
+    println!("  Exporting LCOV with coverage data using {}", toolchain.source);
+
     let mut cmd = Command::new(&toolchain.cov);
     cmd.arg("export")
        .arg("-format=lcov")
        .arg(format!("-instr-profile={}", profdata.display()));
-    
-    // Add all binaries as objects
-    for binary in binaries {
-        cmd.arg(binary);
+
+    // Note: The rustup version of llvm-cov doesn't support --show-functions, --show-branches
+    // These features are available in newer LLVM versions but not in the rustup bundled version
+    // The LCOV export will still include function data if available in the profdata
+
+    // The first binary is passed as the main executable
+    // Additional binaries/objects are passed with --object flags
+    let (first, rest) = binaries.split_first()
+        .ok_or_else(|| anyhow::anyhow!("No binaries provided"))?;
+
+    // Add the first binary as the main argument
+    cmd.arg(first);
+
+    // Add remaining binaries/objects with --object flag
+    for binary in rest {
+        cmd.arg("--object").arg(binary);
     }
-    
+
     let output_data = cmd.output()
         .context("Failed to run llvm-cov export")?;
-    
+
     if !output_data.status.success() {
         let stderr = String::from_utf8_lossy(&output_data.stderr);
         anyhow::bail!("llvm-cov export failed: {}", stderr);
     }
-    
+
     // Write LCOV data to file
     std::fs::write(output, &output_data.stdout)
         .context("Failed to write LCOV file")?;
-    
+
+    // Post-process to ensure proper LCOV format with function and branch data
+    enhance_lcov_with_coverage_stats(output)?;
+
     Ok(())
 }
 
@@ -361,5 +380,157 @@ fn sanitize_lcov_counts(path: &Path) -> Result<()> {
     }
     std::fs::write(path, out)
         .with_context(|| format!("Failed to write sanitized LCOV file {}", path.display()))?;
+    Ok(())
+}
+
+/// Enhance LCOV file with function and branch coverage statistics
+fn enhance_lcov_with_coverage_stats(path: &Path) -> Result<()> {
+    let content = std::fs::read_to_string(path)
+        .with_context(|| format!("Failed to read LCOV file {}", path.display()))?;
+
+    // Parse and calculate coverage statistics per source file
+    let mut enhanced = String::with_capacity(content.len() + 1024);
+    let mut current_file = String::new();
+    let mut function_data: Vec<(String, u64)> = Vec::new();
+    let mut branch_data: Vec<(u64, u64)> = Vec::new();
+    let mut lines_found = 0u64;
+    let mut lines_hit = 0u64;
+
+    for line in content.lines() {
+        // Track source file changes
+        if let Some(file) = line.strip_prefix("SF:") {
+            // Write previous file's summary if any
+            if !current_file.is_empty() {
+                // Add function summary
+                if !function_data.is_empty() {
+                    let functions_found = function_data.len() as u64;
+                    let functions_hit = function_data.iter().filter(|(_, hits)| *hits > 0).count() as u64;
+                    enhanced.push_str(&format!("FNF:{}\n", functions_found));
+                    enhanced.push_str(&format!("FNH:{}\n", functions_hit));
+                }
+
+                // Add branch summary
+                if !branch_data.is_empty() {
+                    let branches_found = branch_data.len() as u64;
+                    let branches_hit = branch_data.iter().filter(|(_, taken)| *taken > 0).count() as u64;
+                    enhanced.push_str(&format!("BRF:{}\n", branches_found));
+                    enhanced.push_str(&format!("BRH:{}\n", branches_hit));
+                }
+
+                // Add line summary
+                if lines_found > 0 {
+                    enhanced.push_str(&format!("LF:{}\n", lines_found));
+                    enhanced.push_str(&format!("LH:{}\n", lines_hit));
+                }
+
+                enhanced.push_str("end_of_record\n");
+
+                // Reset counters
+                function_data.clear();
+                branch_data.clear();
+                lines_found = 0;
+                lines_hit = 0;
+            }
+
+            current_file = file.to_string();
+            enhanced.push_str(line);
+            enhanced.push('\n');
+        }
+        // Track function data
+        else if let Some(func_info) = line.strip_prefix("FN:") {
+            // Format: FN:<line>,<function_name>
+            if let Some((_line_num, func_name)) = func_info.split_once(',') {
+                function_data.push((func_name.to_string(), 0));
+            }
+            enhanced.push_str(line);
+            enhanced.push('\n');
+        }
+        // Track function hits
+        else if let Some(func_data) = line.strip_prefix("FNDA:") {
+            // Format: FNDA:<hits>,<function_name>
+            if let Some((hits_str, func_name)) = func_data.split_once(',') {
+                if let Ok(hits) = hits_str.parse::<u64>() {
+                    // Update function hit count
+                    for (name, count) in &mut function_data {
+                        if name == func_name {
+                            *count = hits;
+                            break;
+                        }
+                    }
+                }
+            }
+            enhanced.push_str(line);
+            enhanced.push('\n');
+        }
+        // Track branch data
+        else if let Some(branch_info) = line.strip_prefix("BRDA:") {
+            // Format: BRDA:<line>,<block>,<branch>,<taken>
+            let parts: Vec<&str> = branch_info.split(',').collect();
+            if parts.len() >= 4 {
+                let taken = if parts[3] == "-" { 0 } else { parts[3].parse::<u64>().unwrap_or(0) };
+                branch_data.push((1, taken));
+            }
+            enhanced.push_str(line);
+            enhanced.push('\n');
+        }
+        // Track line data
+        else if let Some(line_data) = line.strip_prefix("DA:") {
+            // Format: DA:<line>,<hits>
+            if let Some((_, hits_str)) = line_data.split_once(',') {
+                lines_found += 1;
+                if let Ok(hits) = hits_str.parse::<u64>() {
+                    if hits > 0 {
+                        lines_hit += 1;
+                    }
+                }
+            }
+            enhanced.push_str(line);
+            enhanced.push('\n');
+        }
+        // Skip existing summary lines (we'll regenerate them)
+        else if line.starts_with("FNF:") || line.starts_with("FNH:") ||
+                line.starts_with("BRF:") || line.starts_with("BRH:") ||
+                line.starts_with("LF:") || line.starts_with("LH:") {
+            // Skip - we'll add our own summaries
+        }
+        else {
+            enhanced.push_str(line);
+            enhanced.push('\n');
+        }
+    }
+
+    // Write final file's summary if any
+    if !current_file.is_empty() {
+        // Add function summary
+        if !function_data.is_empty() {
+            let functions_found = function_data.len() as u64;
+            let functions_hit = function_data.iter().filter(|(_, hits)| *hits > 0).count() as u64;
+            enhanced.push_str(&format!("FNF:{}\n", functions_found));
+            enhanced.push_str(&format!("FNH:{}\n", functions_hit));
+        }
+
+        // Add branch summary
+        if !branch_data.is_empty() {
+            let branches_found = branch_data.len() as u64;
+            let branches_hit = branch_data.iter().filter(|(_, taken)| *taken > 0).count() as u64;
+            enhanced.push_str(&format!("BRF:{}\n", branches_found));
+            enhanced.push_str(&format!("BRH:{}\n", branches_hit));
+        }
+
+        // Add line summary
+        if lines_found > 0 {
+            enhanced.push_str(&format!("LF:{}\n", lines_found));
+            enhanced.push_str(&format!("LH:{}\n", lines_hit));
+        }
+
+        if !enhanced.trim_end().ends_with("end_of_record") {
+            enhanced.push_str("end_of_record\n");
+        }
+    }
+
+    std::fs::write(path, enhanced)
+        .with_context(|| format!("Failed to write enhanced LCOV file {}", path.display()))?;
+
+    println!("  Enhanced LCOV with function and branch coverage statistics");
     Ok(())
 }

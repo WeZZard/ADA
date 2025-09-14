@@ -294,7 +294,7 @@ pub fn create_tracer() -> Box<dyn TracerControl> {
 }
 
 /// Create file-based event persistence
-pub fn create_file_persistence(output_dir: &Path) -> Box<dyn EventPersistence> {
+pub fn create_file_persistence(_output_dir: &Path) -> Box<dyn EventPersistence> {
     todo!("Implement FilePersistence")
 }
 
