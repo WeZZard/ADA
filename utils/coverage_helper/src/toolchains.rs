@@ -46,15 +46,31 @@ pub fn detect_rust_toolchain() -> Result<LlvmToolchain> {
     let rustup_home = std::env::var("RUSTUP_HOME")
         .unwrap_or_else(|_| format!("{}/.rustup", std::env::var("HOME").unwrap()));
     
-    // Find the active toolchain
+    // Use the active toolchain (which should be stable per rust-toolchain.toml)
     let output = Command::new("rustup")
         .args(&["show", "active-toolchain"])
         .output()
         .context("Failed to run rustup")?;
-    
+
     let toolchain = String::from_utf8_lossy(&output.stdout);
     let toolchain_name = toolchain.split_whitespace().next()
-        .context("Failed to parse rustup toolchain")?;
+        .context("Failed to parse rustup toolchain")?
+        .to_string();
+
+    // Verify we have llvm-tools-preview component
+    let check_component = Command::new("rustup")
+        .args(&["component", "list", "--toolchain", &toolchain_name])
+        .output()
+        .context("Failed to check components")?;
+
+    let components = String::from_utf8_lossy(&check_component.stdout);
+    if !components.contains("llvm-tools-preview") && !components.contains("llvm-tools") {
+        println!("  Warning: llvm-tools-preview not installed for {}. Installing...", toolchain_name);
+        Command::new("rustup")
+            .args(&["component", "add", "llvm-tools-preview", "--toolchain", &toolchain_name])
+            .status()
+            .context("Failed to install llvm-tools-preview")?;
+    }
     
     // Look for LLVM tools in the toolchain
     let patterns = vec![
@@ -264,9 +280,18 @@ pub fn export_lcov(
        .arg("-format=lcov")
        .arg(format!("-instr-profile={}", profdata.display()));
 
-    // Note: The rustup version of llvm-cov doesn't support --show-functions, --show-branches
-    // These features are available in newer LLVM versions but not in the rustup bundled version
-    // The LCOV export will still include function data if available in the profdata
+    // Add branch coverage summary flag for Rust toolchain
+    if toolchain.source == ToolchainSource::Rustup {
+        // Stable Rust 1.89.0+ (2025) supports branch coverage export
+        cmd.arg("--show-branch-summary");
+    }
+
+    // Note: Branch coverage support (as of 2025):
+    // - Stable Rust 1.89.0+ llvm-cov supports branch coverage export (--skip-branches to disable)
+    // - The --show-branch-summary flag adds branch stats to summary output
+    // - Branch data is included in LCOV export by default
+    // - C++ code compiled with -fcoverage-mapping also includes branch data
+    // - Python uses --cov-branch flag for branch coverage
 
     // The first binary is passed as the main executable
     // Additional binaries/objects are passed with --object flags
@@ -324,7 +349,10 @@ pub fn merge_lcov_files(lcov_files: &[PathBuf], output: &Path) -> Result<()> {
     
     // Use lcov tool to merge with error ignoring for compatibility
     let mut cmd = Command::new("lcov");
-    
+
+    // Enable branch coverage preservation
+    cmd.arg("--branch-coverage");
+
     // Ignore common errors that don't affect coverage data
     cmd.arg("--ignore-errors")
        .arg("inconsistent")

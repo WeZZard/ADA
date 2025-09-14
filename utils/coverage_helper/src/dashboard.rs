@@ -178,6 +178,12 @@ fn parse_lcov_metrics(lcov_path: &Path) -> Result<HashMap<String, ComponentMetri
             let parts: Vec<&str> = line[5..].split(',').collect();
             if parts.len() >= 4 {
                 let component = detect_component(&current_file);
+
+                // Skip dependencies and test files from coverage metrics
+                if component == "dependencies" || component == "test_files" {
+                    continue;
+                }
+
                 let is_covered = parts[3] != "-" && parts[3] != "0";
 
                 // Update component metrics
@@ -189,14 +195,16 @@ fn parse_lcov_metrics(lcov_path: &Path) -> Result<HashMap<String, ComponentMetri
                         }
                     });
 
-                // Update total metrics
-                component_data.entry("total".to_string())
-                    .and_modify(|m| {
-                        m.branches_total += 1;
-                        if is_covered {
-                            m.branches_covered += 1;
-                        }
-                    });
+                // Update total metrics (only for actual project files)
+                if component != "other" {
+                    component_data.entry("total".to_string())
+                        .and_modify(|m| {
+                            m.branches_total += 1;
+                            if is_covered {
+                                m.branches_covered += 1;
+                            }
+                        });
+                }
             }
         } else if line.starts_with("LF:") {
             // Summary line for lines found (use if more accurate than counting DA lines)
@@ -321,7 +329,7 @@ fn parse_lcov_metrics(lcov_path: &Path) -> Result<HashMap<String, ComponentMetri
     }
 
     // Calculate percentages for all coverage types
-    for (_, metrics) in component_data.iter_mut() {
+    for (name, metrics) in component_data.iter_mut() {
         if metrics.lines_total > 0 {
             metrics.line_coverage =
                 (metrics.lines_covered as f64 / metrics.lines_total as f64) * 100.0;
@@ -333,6 +341,10 @@ fn parse_lcov_metrics(lcov_path: &Path) -> Result<HashMap<String, ComponentMetri
         if metrics.branches_total > 0 {
             metrics.branch_coverage =
                 (metrics.branches_covered as f64 / metrics.branches_total as f64) * 100.0;
+            eprintln!("DEBUG: {} branch coverage: {}/{} = {:.1}%",
+                     name, metrics.branches_covered, metrics.branches_total, metrics.branch_coverage);
+        } else if name != "total" && name != "other" {
+            eprintln!("DEBUG: {} has no branch data (branches_total=0)", name);
         }
     }
     

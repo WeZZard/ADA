@@ -153,7 +153,19 @@ EOF
     echo "==================================================================" >> "$TREND_REPORT"
 }
 
-nohup bash -c 'generate_reports' >> "$LOG_FILE" 2>&1 &
+# Execute generate_reports function in background with all required variables
+nohup bash -c "
+  export REPO_ROOT='${REPO_ROOT}'
+  export UTILS_DIR='${UTILS_DIR}'
+  export COVERAGE_DIR='${COVERAGE_DIR}'
+  export REPORTS_DIR='${REPORTS_DIR}'
+  export LOG_DIR='${LOG_DIR}'
+  export GREEN='${GREEN}'
+  export BLUE='${BLUE}'
+  export NC='${NC}'
+  $(declare -f generate_reports generate_trend_analysis)
+  generate_reports
+" >> "$LOG_FILE" 2>&1 &
 echo -e "${BLUE}[POST-COMMIT]${NC} Reports will be available at: ${REPORTS_DIR}"
 
 # Git LFS hook

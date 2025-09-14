@@ -231,6 +231,9 @@ build_all() {
         mkdir -p "$COVERAGE_DIR"
     fi
     
+    # Clean previous build artifacts
+    cargo clean
+
     # Run build and capture output
     if ! cargo build --all --release $BUILD_FLAGS 2>&1 | tee "$BUILD_OUTPUT"; then
         deduct_points 100 "Build failed"

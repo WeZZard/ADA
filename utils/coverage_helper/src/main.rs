@@ -184,7 +184,7 @@ fn run_tests_with_coverage() -> Result<()> {
         println!("Running Python tests with coverage...");
         
         let status = Command::new("python")
-            .args(&["-m", "pytest", "--cov=query_engine", "--cov-report=lcov:target/coverage/python.lcov"])
+            .args(&["-m", "pytest", "--cov=query_engine", "--cov-branch", "--cov-report=lcov:target/coverage/python.lcov"])
             .current_dir(&query_engine_dir)
             .status();
         
@@ -273,11 +273,12 @@ fn collect_python_coverage(workspace: &Path, output_lcov: &Path) -> Result<()> {
         // Create a temporary directory for this component's coverage
         let temp_coverage_file = workspace.join("target").join("coverage").join(format!("{}_coverage.xml", name));
         
-        // Run pytest with coverage for this component
+        // Run pytest with coverage for this component (including branch coverage)
         let output = Command::new("python3")
             .args(&[
                 "-m", "pytest",
                 "--cov", name,
+                "--cov-branch",
                 "--cov-report", &format!("xml:{}", temp_coverage_file.display()),
                 "--cov-report", "term",
             ])
@@ -385,8 +386,16 @@ if __name__ == '__main__':
 /// 2. Merges them into a single .profdata file using llvm-profdata
 /// 3. Exports to LCOV format using llvm-cov with both Rust and C++ binaries
 ///
-/// This unified approach eliminates duplicate test execution and provides
-/// consistent coverage metrics across all native code.
+/// This unified approach is OPTIMAL because:
+/// - No duplicate test execution (tests run once via cargo test)
+/// - Both Rust and C++ use the same LLVM coverage infrastructure
+/// - Consistent coverage metrics across all native code
+/// - Single profdata merge operation for better performance
+///
+/// Note: While cargo-llvm-cov could provide better Rust coverage features,
+/// using it would require running tests twice (once for Rust via cargo-llvm-cov,
+/// once for C++ via cargo test), which is inefficient and could lead to
+/// inconsistent results.
 fn collect_unified_coverage(workspace: &Path, coverage_dir: &Path, output_lcov: &Path) -> Result<()> {
     println!("\nCollecting unified Rust + C++ coverage...");
 
