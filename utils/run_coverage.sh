@@ -11,27 +11,20 @@ echo
 
 # Clean previous coverage data
 echo "Cleaning previous coverage data..."
-rm -rf target/coverage/*.profraw
+rm -rf target/coverage
 rm -rf target/coverage_report
+mkdir -p target/coverage
 
 # Build with coverage
 echo "Building with coverage instrumentation..."
-cargo build --release --features coverage -p tracer_backend
+export RUSTFLAGS="-C instrument-coverage"
+export LLVM_PROFILE_FILE="$WORKSPACE_ROOT/target/coverage/unified-%p-%m.profraw"
+cargo build --release --all --features tracer_backend/coverage,query_engine/coverage
 
-# Run C++ tests with coverage
-echo "Running C++ tests with coverage..."
-export LLVM_PROFILE_FILE="$WORKSPACE_ROOT/target/coverage/cpp-%p-%m.profraw"
-for test in target/release/tracer_backend/test/test_*; do
-    if [ -x "$test" ]; then
-        echo "  Running $(basename $test)..."
-        "$test" > /dev/null 2>&1 || true
-    fi
-done
-
-# Run Rust tests with coverage (if needed)
-echo "Running Rust tests with coverage..."
-export LLVM_PROFILE_FILE="$WORKSPACE_ROOT/target/coverage/rust-%p-%m.profraw"
-cargo test --release || true
+# Run all tests with unified coverage (Rust + C++ via wrappers)
+echo "Running all tests with coverage (Rust + C++)..."
+# LLVM_PROFILE_FILE already exported above
+cargo test --release --all --features tracer_backend/coverage,query_engine/coverage || true
 
 # Collect coverage
 echo
