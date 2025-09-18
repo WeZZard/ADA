@@ -109,6 +109,7 @@ fn main() {
     println!("cargo:rustc-link-search=native={}/lib", dst.display());
     println!("cargo:rustc-link-lib=static=tracer_controller");
     println!("cargo:rustc-link-lib=static=tracer_utils");
+    println!("cargo:rustc-link-lib=static=tracer_drain_thread");
     
     // Link C++ standard library (needed for ring_buffer.cpp and thread_registry.cpp)
     println!("cargo:rustc-link-lib=c++");
@@ -187,6 +188,9 @@ fn main() {
         ("build/test_spsc_queue", "test/test_spsc_queue"),
         ("build/tests/unit/utils/test_spsc_queue", "test/test_spsc_queue"),
         ("out/bin/test_spsc_queue", "test/test_spsc_queue"),
+        ("build/test_drain_thread", "test/test_drain_thread"),
+        ("build/tests/unit/drain_thread/test_drain_thread", "test/test_drain_thread"),
+        ("out/bin/test_drain_thread", "test/test_drain_thread"),
         ("build/test_ring_pool_swap", "test/test_ring_pool_swap"),
         ("build/tests/unit/utils/test_ring_pool_swap", "test/test_ring_pool_swap"),
         ("out/bin/test_ring_pool_swap", "test/test_ring_pool_swap"),
@@ -230,6 +234,9 @@ fn main() {
         ("build/test_thread_registry_integration", "test/test_thread_registry_integration"),
         ("build/tests/integration/utils/test_thread_registry_integration", "test/test_thread_registry_integration"),
         ("out/bin/test_thread_registry_integration", "test/test_thread_registry_integration"),
+        ("build/test_drain_thread_integration", "test/test_drain_thread_integration"),
+        ("build/tests/integration/drain_thread/test_drain_thread_integration", "test/test_drain_thread_integration"),
+        ("out/bin/test_drain_thread_integration", "test/test_drain_thread_integration"),
         // Controller integration tests
         ("build/test_controller_full_lifecycle", "test/test_controller_full_lifecycle"),
         ("build/tests/integration/controller/test_controller_full_lifecycle", "test/test_controller_full_lifecycle"),

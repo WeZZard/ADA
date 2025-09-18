@@ -59,11 +59,13 @@ endif()
 
 # Unit tests
 add_subdirectory(unit/utils)
+add_subdirectory(unit/drain_thread)
 add_subdirectory(unit/controller)
 add_subdirectory(unit/agent)
 
 # Integration tests
 add_subdirectory(integration/utils)
+add_subdirectory(integration/drain_thread)
 add_subdirectory(integration/controller)
 add_subdirectory(integration/agent)
 
