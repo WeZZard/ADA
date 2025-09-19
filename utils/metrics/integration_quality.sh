@@ -404,28 +404,22 @@ sign_test_binaries() {
     start_timer "Sign Test Binaries"
     log_info "Signing test binaries (required on macOS)..."
 
+    # Skip on non-macOS platforms
+    if [[ "$OSTYPE" != "darwin"* ]]; then
+        log_info "Not macOS - skipping binary signing"
+        end_timer "Sign Test Binaries"
+        return 0
+    fi
+
     if (is_ci || is_ssh) && [ -z "${APPLE_DEVELOPER_ID:-}" ]; then
         log_error "APPLE_DEVELOPER_ID not set - required for macOS development"
         deduct_points 100 "No Apple Developer certificate"
+        end_timer "Sign Test Binaries"
         return 1
     fi
 
-    local sign_count=0
-    local sign_failures=0
-    local failed_binaries=""
-
-    # Create temp files for counting and error tracking (sh-compatible approach)
-    local count_file=$(mktemp)
-    local error_file=$(mktemp)
-    echo "0 0" > "$count_file"
-
     # Use predictable paths from tracer_backend build.rs
-    # This avoids signing duplicate binaries in CMake build directories
     local test_dirs=""
-
-    # Check both release and debug predictable test directories
-    # Build phase uses --release, but tests might be in debug too
-    local found_predictable=false
 
     # Primary location: check release first (since build uses --release)
     if [ -d "${REPO_ROOT}/target/release/tracer_backend/test" ]; then
@@ -460,39 +454,54 @@ sign_test_binaries() {
 
     log_info "Found $total_binaries test binaries to sign..."
 
-    find $test_dirs -name "test_*" -type f -perm +111 2>/dev/null | while IFS= read -r binary; do
+    # Use parallel signing for maximum performance
+    local parallel_script="${REPO_ROOT}/utils/sign_binaries_parallel.sh"
+
+    if [ -x "$parallel_script" ]; then
+        # Use the optimized parallel signing script
+        if "$parallel_script" "$test_dirs"; then
+            sign_count=$total_binaries
+            sign_failures=0
+        else
+            sign_failures=1  # At least one failed
+        fi
+    else
+        # Fallback to sequential signing if parallel script not available
+        log_warning "Parallel signing script not found, using sequential signing"
+
+        find $test_dirs -name "test_*" -type f -perm +111 2>/dev/null | while IFS= read -r binary; do
+            read sign_count sign_failures < "$count_file"
+            sign_count=$((sign_count + 1))
+
+            # Show progress
+            if [ $((sign_count % 10)) -eq 0 ] || [ $((sign_count * 100 / total_binaries)) -gt $((((sign_count - 1) * 100 / total_binaries))) ]; then
+                printf "\r${BLUE}[SIGNING]${NC} Progress: %d/%d (%.0f%%) - Failures: %d" \
+                    "$sign_count" "$total_binaries" \
+                    "$((sign_count * 100 / total_binaries))" \
+                    "$sign_failures" >&2
+            fi
+
+            # Try fast signing script first, fallback to original
+            local sign_script="${REPO_ROOT}/utils/sign_binary_fast.sh"
+            [ ! -x "$sign_script" ] && sign_script="${REPO_ROOT}/utils/sign_binary.sh"
+
+            local sign_output=$("$sign_script" "$binary" 2>&1)
+            local sign_result=$?
+
+            if [ $sign_result -ne 0 ]; then
+                sign_failures=$((sign_failures + 1))
+                echo "FAILED: $(basename "$binary")" >> "$error_file"
+                echo "  Path: $binary" >> "$error_file"
+                echo "  Error: $sign_output" | head -5 >> "$error_file"
+                echo "---" >> "$error_file"
+            fi
+
+            echo "$sign_count $sign_failures" > "$count_file"
+        done
+
+        printf "\r%80s\r" " " >&2
         read sign_count sign_failures < "$count_file"
-        sign_count=$((sign_count + 1))
-
-        # Show progress every 10 binaries or at specific percentages
-        if [ $((sign_count % 10)) -eq 0 ] || [ $((sign_count * 100 / total_binaries)) -gt $((((sign_count - 1) * 100 / total_binaries))) ]; then
-            printf "\r${BLUE}[SIGNING]${NC} Progress: %d/%d (%.0f%%) - Failures: %d" \
-                "$sign_count" "$total_binaries" \
-                "$((sign_count * 100 / total_binaries))" \
-                "$sign_failures" >&2
-        fi
-
-        # Capture signing output for debugging
-        local sign_output=$("${REPO_ROOT}/utils/sign_binary.sh" "$binary" 2>&1)
-        local sign_result=$?
-
-        if [ $sign_result -ne 0 ]; then
-            sign_failures=$((sign_failures + 1))
-            # Store error details
-            echo "FAILED: $(basename "$binary")" >> "$error_file"
-            echo "  Path: $binary" >> "$error_file"
-            echo "  Error: $sign_output" | head -5 >> "$error_file"
-            echo "---" >> "$error_file"
-        fi
-
-        echo "$sign_count $sign_failures" > "$count_file"
-    done
-
-    # Clear progress line
-    printf "\r%80s\r" " " >&2
-
-    # Read final counts
-    read sign_count sign_failures < "$count_file"
+    fi
 
     if [ "$sign_failures" -gt 0 ]; then
         log_error "Failed to sign $sign_failures out of $sign_count binaries"
@@ -522,8 +531,11 @@ sign_test_binaries() {
         return 1
     fi
 
-    rm -f "$count_file" "$error_file"
-    log_success "Successfully signed all $sign_count test binaries"
+    # Note: count_file and error_file were used in the old sequential signing approach
+    # They are no longer needed with parallel signing, but we keep success message
+
+    log_success "Binary signing completed"
+
     end_timer "Sign Test Binaries"
     return 0
 }
@@ -636,8 +648,44 @@ collect_coverage() {
     # The coverage_helper "full" command runs tests AGAIN with coverage enabled
     # This causes a rebuild. Since we already ran tests, just collect existing coverage data
     start_timer "Coverage Collection (timeout: ${coverage_timeout}s)"
-    if ! timeout "$coverage_timeout" cargo run --manifest-path "${REPO_ROOT}/utils/coverage_helper/Cargo.toml" -- collect; then
-        if [[ $? -eq 124 ]]; then
+
+    # Cross-platform timeout implementation
+    # macOS doesn't have timeout command by default
+    local cmd_output=$(mktemp)
+    local cmd_status=$(mktemp)
+    trap "rm -f $cmd_output $cmd_status" RETURN
+
+    # Run command in background
+    (
+        cargo run --manifest-path "${REPO_ROOT}/utils/coverage_helper/Cargo.toml" -- collect > "$cmd_output" 2>&1
+        echo $? > "$cmd_status"
+    ) &
+    local cmd_pid=$!
+
+    # Wait for command or timeout
+    local elapsed=0
+    while [[ $elapsed -lt $coverage_timeout ]] && kill -0 $cmd_pid 2>/dev/null; do
+        sleep 1
+        ((elapsed++))
+    done
+
+    if kill -0 $cmd_pid 2>/dev/null; then
+        # Timeout reached, kill the process
+        kill -TERM $cmd_pid 2>/dev/null
+        sleep 1
+        kill -KILL $cmd_pid 2>/dev/null
+        wait $cmd_pid 2>/dev/null
+        cat "$cmd_output"
+        local exit_code=124  # Standard timeout exit code
+    else
+        # Command finished normally
+        wait $cmd_pid
+        cat "$cmd_output"
+        local exit_code=$(cat "$cmd_status")
+    fi
+
+    if [[ $exit_code -ne 0 ]]; then
+        if [[ $exit_code -eq 124 ]]; then
             end_timer "Coverage Collection (timeout: ${coverage_timeout}s)"
             log_warning "Coverage collection timed out after ${coverage_timeout}s"
             # In incremental mode, timeout is acceptable if tests passed
