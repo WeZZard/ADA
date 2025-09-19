@@ -110,10 +110,29 @@ fn main() -> Result<()> {
         Commands::Collect => collect_coverage(),
         Commands::Report { format } => generate_report(&format),
         Commands::Full { format } => {
+            let start = std::time::Instant::now();
+
+            println!("[TIMING] Starting full coverage workflow");
+
+            let clean_start = std::time::Instant::now();
             clean_coverage()?;
+            println!("[TIMING] Clean completed in {:.2}s", clean_start.elapsed().as_secs_f32());
+
+            let test_start = std::time::Instant::now();
             run_tests_with_coverage()?;
+            println!("[TIMING] Tests with coverage completed in {:.2}s", test_start.elapsed().as_secs_f32());
+
+            let collect_start = std::time::Instant::now();
             collect_coverage()?;
-            generate_report(&format)
+            println!("[TIMING] Coverage collection completed in {:.2}s", collect_start.elapsed().as_secs_f32());
+
+            let report_start = std::time::Instant::now();
+            generate_report(&format)?;
+            println!("[TIMING] Report generation completed in {:.2}s", report_start.elapsed().as_secs_f32());
+
+            println!("[TIMING] Total full coverage workflow: {:.2}s", start.elapsed().as_secs_f32());
+
+            Ok(())
         }
     }
 }

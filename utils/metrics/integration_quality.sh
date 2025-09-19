@@ -311,12 +311,12 @@ build_all() {
         mkdir -p "$COVERAGE_DIR"
     fi
 
-    # Clean previous build artifacts (skip in incremental mode for speed)
-    if [[ "$MODE" != "incremental" ]]; then
-        start_timer "Cargo Clean"
-        cargo clean
-        end_timer "Cargo Clean"
-    fi
+    # Clean previous build artifacts (temporarily always clean to identify bottleneck)
+    # if [[ "$MODE" != "incremental" ]]; then
+    start_timer "Cargo Clean"
+    cargo clean
+    end_timer "Cargo Clean"
+    # fi
 
     # Run build and capture output
     start_timer "Cargo Build"
@@ -633,8 +633,10 @@ collect_coverage() {
         coverage_timeout="60"  # 1 minute for incremental
     fi
 
+    # The coverage_helper "full" command runs tests AGAIN with coverage enabled
+    # This causes a rebuild. Since we already ran tests, just collect existing coverage data
     start_timer "Coverage Collection (timeout: ${coverage_timeout}s)"
-    if ! timeout "$coverage_timeout" cargo run --manifest-path "${REPO_ROOT}/utils/coverage_helper/Cargo.toml" -- full; then
+    if ! timeout "$coverage_timeout" cargo run --manifest-path "${REPO_ROOT}/utils/coverage_helper/Cargo.toml" -- collect; then
         if [[ $? -eq 124 ]]; then
             end_timer "Coverage Collection (timeout: ${coverage_timeout}s)"
             log_warning "Coverage collection timed out after ${coverage_timeout}s"
