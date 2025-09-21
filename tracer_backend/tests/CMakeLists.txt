@@ -81,6 +81,7 @@ add_subdirectory(integration/agent)
 add_subdirectory(integration/atf_v4)
 add_subdirectory(integration/selective_persistence)
 add_subdirectory(integration/metrics)
+add_subdirectory(integration/system)
 
 # Benchmark tests (when available)
 add_subdirectory(bench/utils)

@@ -319,6 +319,10 @@ fn main() {
         ("build/test_agent_registry_modes", "test/test_agent_registry_modes"),
         ("build/tests/integration/agent/test_agent_registry_modes", "test/test_agent_registry_modes"),
         ("out/bin/test_agent_registry_modes", "test/test_agent_registry_modes"),
+        // System integration tests
+        ("build/test_system_integration", "test/test_system_integration"),
+        ("build/tests/integration/system/test_system_integration", "test/test_system_integration"),
+        ("out/bin/test_system_integration", "test/test_system_integration"),
         // Registry benchmark tests
         ("build/test_registry_bench", "test/test_registry_bench"),
         ("build/tests/bench/registry/test_registry_bench", "test/test_registry_bench"),
