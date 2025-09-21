@@ -16,6 +16,12 @@ Validate ATF V4 file parsing provides efficient, accurate access to trace data w
 ## Test Execution Sequence
 1. Unit Tests → 2. Integration Tests → 3. Performance Tests → 4. Stress Tests
 
+### 2025-02-14 Coverage Augmentation Log
+- Implemented focused unit suite (`tests/unit/test_atf_reader_covfill_unit.py`) covering manifest validation, memory map protections, iterator error handling, and `ATFReader` detail/parsing failure paths.
+- Added integration coverage (`tests/integration/test_atf_reader_covfill_integration.py`) exercising metadata hydration, detail decoding, and filtered event counts over synthetic ATF fixtures.
+- Verified new tests via filtered `pytest -k covfill` runs with 5-minute and 20-minute watchdog timers, and confirmed full `pytest` suite success.
+- Used Python's `trace` module to ensure `iterator.py`, `manifest.py`, `memory_map.py`, and `reader.py` report 100% executed lines under the augmented suites.
+
 ## Test Matrix
 | Test Case | Input | Expected Output | Pass Criteria |
 |-----------|-------|-----------------|---------------|

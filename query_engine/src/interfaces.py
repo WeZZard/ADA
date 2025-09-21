@@ -302,7 +302,8 @@ class TraceIndex(Protocol):
 
 def create_atf_reader() -> ATFReader:
     """Create default ATF reader implementation"""
-    from .atf_reader_impl import DefaultATFReader
+    from atf.reader import ATFReader as DefaultATFReader
+
     return DefaultATFReader()
 
 def create_atf_writer() -> ATFWriter:

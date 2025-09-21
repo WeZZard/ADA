@@ -5,6 +5,9 @@
 **Priority**: P0 (Critical - foundation for query engine data access)
 **Dependencies**: M1_E2_I3 (ATF V4 Writer)
 
+### Out-of-scope Issues Observed (2025-02-14)
+- [ ] `cargo test --all` currently fails because `cpp__test_timer__TimerWhiteboxTest__timer_whitebox__decrement_retry__then_records_retry` in `tracer_backend/tests/unit/timer/test_timer.c` expects retry counters to increment. Failing behavior predates the coverage work and requires C++ timer implementation investigation before release.
+
 ## Day 1: Core Parsing Infrastructure (8 hours)
 
 ### ATF-001: Project structure setup (P0, 0.5h)
