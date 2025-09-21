@@ -14,6 +14,7 @@ extern "C" {
 
 #include <tracer_backend/utils/tracer_types.h>
 #include <tracer_backend/utils/thread_registry.h>
+#include <tracer_backend/backpressure/backpressure.h>
 
 // Thread-local storage for fast path access
 typedef struct ada_tls_state {
@@ -32,6 +33,7 @@ typedef struct ada_tls_state {
     uint64_t reentry_count;         // Reentrancy occurrences
     uint64_t overflow_count;        // Ring buffer overflows
     uint64_t _pad2;                 // Padding / reserved
+    ada_backpressure_state_t backpressure[2]; // [0]=index, [1]=detail
 } ada_tls_state_t;
 
 // Reentrancy guard for nested calls

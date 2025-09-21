@@ -119,7 +119,16 @@ RingBufferHeader* thread_registry_get_active_ring_header(ThreadRegistry* registr
     auto* cpp_registry = reinterpret_cast<ada::internal::ThreadRegistry*>(registry);
     auto* cpp_lane = reinterpret_cast<ada::internal::Lane*>(lane);
     auto idx = cpp_lane->active_idx.load(std::memory_order_relaxed);
-    if (idx >= cpp_lane->ring_count) return nullptr;
+    return thread_registry_get_ring_header_by_idx(registry, lane, idx);
+}
+
+RingBufferHeader* thread_registry_get_ring_header_by_idx(ThreadRegistry* registry,
+                                                         Lane* lane,
+                                                         uint32_t ring_idx) {
+    if (!registry || !lane) return nullptr;
+    auto* cpp_registry = reinterpret_cast<ada::internal::ThreadRegistry*>(registry);
+    auto* cpp_lane = reinterpret_cast<ada::internal::Lane*>(lane);
+    if (ring_idx >= cpp_lane->ring_count) return nullptr;
     using ada::internal::ThreadLaneSet;
     uint8_t* p = reinterpret_cast<uint8_t*>(cpp_lane);
     ThreadLaneSet* parent = nullptr;
@@ -141,11 +150,11 @@ RingBufferHeader* thread_registry_get_active_ring_header(ThreadRegistry* registr
     uint8_t* seg_base = reg_base + seg.base_offset;
     uint64_t layout_off = is_index ? parent->index_layout_off : parent->detail_layout_off;
     auto* layout = reinterpret_cast<ada::internal::LaneMemoryLayout*>(seg_base + layout_off);
-    uint32_t seg_id = layout->ring_descs[idx].segment_id;
+    uint32_t seg_id = layout->ring_descs[ring_idx].segment_id;
     if (seg_id == 0 || seg_id > cpp_registry->segment_count.load()) return nullptr;
     auto& seg2 = cpp_registry->segments[seg_id - 1];
     uint8_t* seg_base2 = reg_base + seg2.base_offset;
-    uint8_t* ring_ptr = seg_base2 + layout->ring_descs[idx].offset;
+    uint8_t* ring_ptr = seg_base2 + layout->ring_descs[ring_idx].offset;
     return reinterpret_cast<RingBufferHeader*>(ring_ptr);
 }
 

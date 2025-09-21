@@ -194,7 +194,24 @@ public:
         __atomic_store_n(&header_->write_pos, 0, __ATOMIC_RELEASE);
         __atomic_store_n(&header_->read_pos, 0, __ATOMIC_RELEASE);
     }
-    
+
+    // Drop the oldest event to free space
+    bool drop_oldest() {
+        uint32_t read_pos = __atomic_load_n(&header_->read_pos, __ATOMIC_ACQUIRE);
+        uint32_t write_pos = __atomic_load_n(&header_->write_pos, __ATOMIC_ACQUIRE);
+
+        // Check if empty
+        if (read_pos == write_pos) {
+            return false; // Nothing to drop
+        }
+
+        // Advance read position to drop the oldest event
+        uint32_t next_pos = (read_pos + 1) & mask_;
+        __atomic_store_n(&header_->read_pos, next_pos, __ATOMIC_RELEASE);
+
+        return true;
+    }
+
     // Accessors for internal state
     size_t get_event_size() const { return event_size_; }
     size_t get_capacity() const { return header_ ? header_->capacity : 0; }

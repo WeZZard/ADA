@@ -62,6 +62,7 @@ endif()
 
 # Unit tests
 add_subdirectory(unit/utils)
+add_subdirectory(unit/backpressure)
 add_subdirectory(unit/drain_thread)
 add_subdirectory(unit/timer)
 add_subdirectory(unit/controller)
@@ -84,6 +85,7 @@ add_subdirectory(bench/utils)
 add_subdirectory(bench/controller)
 add_subdirectory(bench/agent)
 add_subdirectory(bench/registry)
+add_subdirectory(bench/backpressure)
 
 # ===========================================
 # Custom Targets for Running Tests

@@ -9,6 +9,8 @@ extern __thread ThreadLaneSet* tls_my_lanes;
 
 // TLS state
 static __thread ada_tls_state_t g_tls_state = {0};
+static __thread bool g_tls_bp_initialized = false;
+
 
 // Global registry pointer (set by controller/agent runtime)
 static _Atomic(ThreadRegistry*) g_global_registry = NULL;
@@ -27,12 +29,20 @@ static uint64_t ada_now_monotonic_ns(void) {
 }
 
 ada_tls_state_t* ada_get_tls_state(void) {
+    if (!g_tls_bp_initialized) {
+        ada_backpressure_state_init(&g_tls_state.backpressure[0], NULL);
+        ada_backpressure_state_init(&g_tls_state.backpressure[1], NULL);
+        g_tls_bp_initialized = true;
+    }
     return &g_tls_state;
 }
 
 void ada_reset_tls_state(void) {
     memset(&g_tls_state, 0, sizeof(g_tls_state));
     tls_my_lanes = NULL;
+    ada_backpressure_state_init(&g_tls_state.backpressure[0], NULL);
+    ada_backpressure_state_init(&g_tls_state.backpressure[1], NULL);
+    g_tls_bp_initialized = true;
 }
 
 void ada_set_global_registry(ThreadRegistry* registry) {

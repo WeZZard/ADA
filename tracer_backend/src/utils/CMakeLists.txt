@@ -32,6 +32,8 @@ target_include_directories(tracer_utils
 target_link_libraries(tracer_utils
     PUBLIC
         Threads::Threads
+    PRIVATE
+        tracer_backpressure
 )
 
 # Set compile features

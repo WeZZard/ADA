@@ -129,6 +129,12 @@ uint64_t ring_buffer_get_overflow_count(RingBuffer* rb) {
     return __atomic_load_n(&hdr->overflow_count, __ATOMIC_ACQUIRE);
 }
 
+bool ring_buffer_drop_oldest(RingBuffer* rb) {
+    if (!rb) return false;
+    auto* impl = reinterpret_cast<ada::internal::RingBuffer*>(rb);
+    return impl->drop_oldest();
+}
+
 static inline uint32_t rb_mask_from_header(const RingBufferHeader* hdr) {
     return hdr->capacity ? (hdr->capacity - 1u) : 0u;
 }

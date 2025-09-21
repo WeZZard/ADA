@@ -59,6 +59,10 @@ RingBufferHeader* ring_buffer_get_header(RingBuffer* rb);
 // Metrics accessors
 uint64_t ring_buffer_get_overflow_count(RingBuffer* rb);
 
+// Drop oldest event (consumer side operation to free space)
+// Returns true if an event was dropped, false if buffer was empty
+bool ring_buffer_drop_oldest(RingBuffer* rb);
+
 // Raw, header-only helpers (no handle) for offsets-only SHM materialization
 // These operate directly on RingBufferHeader and adjacent payload buffer.
 // Event size must match the ring's event type size.

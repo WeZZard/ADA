@@ -301,6 +301,16 @@ fn main() {
         ("build/test_registry_bench", "test/test_registry_bench"),
         ("build/tests/bench/registry/test_registry_bench", "test/test_registry_bench"),
         ("out/bin/test_registry_bench", "test/test_registry_bench"),
+        ("build/bench_backpressure_overhead", "test/bench_backpressure_overhead"),
+        (
+            "build/tests/bench/backpressure/bench_backpressure_overhead",
+            "test/bench_backpressure_overhead",
+        ),
+        ("out/bin/bench_backpressure_overhead", "test/bench_backpressure_overhead"),
+        // Backpressure unit tests
+        ("build/test_backpressure_state", "test/test_backpressure_state"),
+        ("build/tests/unit/backpressure/test_backpressure_state", "test/test_backpressure_state"),
+        ("out/bin/test_backpressure_state", "test/test_backpressure_state"),
     ];
     
     for (src_path, dst_path) in binaries {

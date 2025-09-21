@@ -128,6 +128,11 @@ bool thread_registry_unregister_by_id(ThreadRegistry* registry, uintptr_t thread
 RingBufferHeader* thread_registry_get_active_ring_header(ThreadRegistry* registry,
                                                         Lane* lane);
 
+// Get ring header by index (for drop-oldest operations)
+RingBufferHeader* thread_registry_get_ring_header_by_idx(ThreadRegistry* registry,
+                                                        Lane* lane,
+                                                        uint32_t ring_idx);
+
 // ============================================================================
 // Thread-local storage
 // ============================================================================
