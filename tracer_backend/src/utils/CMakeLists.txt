@@ -8,6 +8,8 @@ set(UTILS_SOURCES
     ../metrics/global_metrics.cpp
     ../metrics/rate_calculator.cpp
     ../metrics/snapshot.cpp
+    ../metrics/formatter.cpp
+    ../metrics/metrics_reporter.cpp
     shared_memory.c
     shm_directory.c
     ring_buffer.cpp
