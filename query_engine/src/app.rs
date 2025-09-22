@@ -11,7 +11,7 @@ use tracing::{error, info};
 use tracing_subscriber::EnvFilter;
 
 use crate::{
-    handlers::trace_info::TraceInfoHandler,
+    handlers::{EventsGetHandler, SpansListHandler, TraceInfoHandler},
     server::{JsonRpcServer, ServerError},
 };
 
@@ -78,6 +78,12 @@ pub async fn run(config: AppConfig) -> Result<()> {
         config.cache_ttl,
     );
     handler.register(&server);
+
+    let events_handler = EventsGetHandler::new(config.trace_root.clone());
+    events_handler.register(&server);
+
+    let spans_handler = SpansListHandler::new(config.trace_root.clone());
+    spans_handler.register(&server);
 
     info!(
         address = %config.address,
