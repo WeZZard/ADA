@@ -116,7 +116,11 @@ impl JsonRpcError {
         )
     }
 
-pub fn rate_limited() -> Self {
+    pub fn trace_not_found() -> Self {
+        Self::new(-32000, "Trace not found", None)
+    }
+
+    pub fn rate_limited() -> Self {
         Self::new(-32001, "Too many requests", None)
     }
 
@@ -156,7 +160,10 @@ mod tests {
         let err = request.validate().expect_err("expected validation error");
         assert_eq!(err.code, -32600);
         assert_eq!(err.message, "Invalid request");
-        assert_eq!(err.data, Some(Value::String("jsonrpc field must be '2.0'".into())));
+        assert_eq!(
+            err.data,
+            Some(Value::String("jsonrpc field must be '2.0'".into()))
+        );
     }
 
     #[test]
@@ -171,7 +178,10 @@ mod tests {
         let err = request.validate().expect_err("expected validation error");
         assert_eq!(err.code, -32600);
         assert_eq!(err.message, "Invalid request");
-        assert_eq!(err.data, Some(Value::String("method must not be empty".into())));
+        assert_eq!(
+            err.data,
+            Some(Value::String("method must not be empty".into()))
+        );
     }
 
     #[test]
@@ -221,12 +231,20 @@ mod tests {
         let invalid_params = JsonRpcError::invalid_params("bad params");
         assert_eq!(invalid_params.code, -32602);
         assert_eq!(invalid_params.message, "Invalid params");
-        assert_eq!(invalid_params.data, Some(Value::String("bad params".into())));
+        assert_eq!(
+            invalid_params.data,
+            Some(Value::String("bad params".into()))
+        );
 
         let internal = JsonRpcError::internal("panic");
         assert_eq!(internal.code, -32603);
         assert_eq!(internal.message, "Internal error");
         assert_eq!(internal.data, Some(Value::String("panic".into())));
+
+        let trace_not_found = JsonRpcError::trace_not_found();
+        assert_eq!(trace_not_found.code, -32000);
+        assert_eq!(trace_not_found.message, "Trace not found");
+        assert!(trace_not_found.data.is_none());
 
         let rate_limited = JsonRpcError::rate_limited();
         assert_eq!(rate_limited.code, -32001);
@@ -235,7 +253,10 @@ mod tests {
 
         let too_many_connections = JsonRpcError::too_many_connections();
         assert_eq!(too_many_connections.code, -32002);
-        assert_eq!(too_many_connections.message, "Too many concurrent connections");
+        assert_eq!(
+            too_many_connections.message,
+            "Too many concurrent connections"
+        );
         assert!(too_many_connections.data.is_none());
     }
 
