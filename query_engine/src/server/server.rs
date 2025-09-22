@@ -373,10 +373,14 @@ mod tests {
 
         // Make a request to ensure serve_on_listener and serve_from_builder are called
         let client = Client::new();
-        let uri = format!("http://{}/rpc", addr).parse::<hyper::Uri>().expect("uri");
+        let uri = format!("http://{}/rpc", addr)
+            .parse::<hyper::Uri>()
+            .expect("uri");
         let request = hyper::Request::post(uri)
             .header("content-type", "application/json")
-            .body(hyper::Body::from(r#"{"jsonrpc":"2.0","method":"test","id":1}"#))
+            .body(hyper::Body::from(
+                r#"{"jsonrpc":"2.0","method":"test","id":1}"#,
+            ))
             .expect("request");
 
         let response = client.request(request).await.expect("response");
@@ -413,10 +417,14 @@ mod tests {
 
         // Make a request to trigger line 115
         let client = Client::new();
-        let uri = format!("http://{}/rpc", addr).parse::<hyper::Uri>().expect("uri");
+        let uri = format!("http://{}/rpc", addr)
+            .parse::<hyper::Uri>()
+            .expect("uri");
         let request = hyper::Request::post(uri)
             .header("content-type", "application/json")
-            .body(hyper::Body::from(r#"{"jsonrpc":"2.0","method":"ping","id":2}"#))
+            .body(hyper::Body::from(
+                r#"{"jsonrpc":"2.0","method":"ping","id":2}"#,
+            ))
             .expect("request");
 
         let response = client.request(request).await.expect("response");
@@ -501,7 +509,10 @@ mod tests {
 
         let payload = parse_body(response).await;
         assert_eq!(payload["error"]["code"], -32002);
-        assert_eq!(payload["error"]["message"], "Too many concurrent connections");
+        assert_eq!(
+            payload["error"]["message"],
+            "Too many concurrent connections"
+        );
         drop(guard);
     }
 
@@ -523,10 +534,7 @@ mod tests {
     async fn json_rpc_server__invalid_json_body__then_parse_error() {
         let server = JsonRpcServer::with_config(test_config());
         let response = server
-            .handle_http_request(
-                build_request(Body::from("{")),
-                remote_addr(),
-            )
+            .handle_http_request(build_request(Body::from("{")), remote_addr())
             .await
             .expect("http response");
 
@@ -539,10 +547,7 @@ mod tests {
     async fn json_rpc_server__batch_requests__then_invalid_request_error() {
         let server = JsonRpcServer::with_config(test_config());
         let response = server
-            .handle_http_request(
-                build_request(Body::from("[]")),
-                remote_addr(),
-            )
+            .handle_http_request(build_request(Body::from("[]")), remote_addr())
             .await
             .expect("http response");
 
@@ -564,7 +569,10 @@ mod tests {
 
         let payload = parse_body(response).await;
         assert_eq!(payload["error"]["code"], -32600);
-        assert!(payload["error"]["data"].as_str().unwrap().contains("method"));
+        assert!(payload["error"]["data"]
+            .as_str()
+            .unwrap()
+            .contains("method"));
     }
 
     #[tokio::test]
@@ -572,9 +580,7 @@ mod tests {
         let server = JsonRpcServer::with_config(test_config());
         let response = server
             .handle_http_request(
-                build_request(Body::from(
-                    r#"{"jsonrpc":"2.0","method":" ","id":1}"#,
-                )),
+                build_request(Body::from(r#"{"jsonrpc":"2.0","method":" ","id":1}"#)),
                 remote_addr(),
             )
             .await
@@ -597,9 +603,7 @@ mod tests {
 
         let response = server
             .handle_http_request(
-                build_request(Body::from(
-                    r#"{"jsonrpc":"2.0","method":"trace.notify"}"#,
-                )),
+                build_request(Body::from(r#"{"jsonrpc":"2.0","method":"trace.notify"}"#)),
                 remote_addr(),
             )
             .await
@@ -612,7 +616,9 @@ mod tests {
     #[tokio::test]
     async fn json_rpc_server__method_dispatch_success__then_returns_result() {
         let server = JsonRpcServer::with_config(test_config());
-        server.register_sync("trace.echo", |params| Ok(params.unwrap_or_else(|| json!({}))));
+        server.register_sync("trace.echo", |params| {
+            Ok(params.unwrap_or_else(|| json!({})))
+        });
 
         let response = server
             .handle_http_request(
@@ -696,7 +702,10 @@ mod tests {
         let payload = parse_body(response).await;
         assert_eq!(payload["error"]["code"], -32603);
         assert_eq!(payload["error"]["message"], "Internal error");
-        assert!(payload["error"]["data"].as_str().unwrap().contains("failed to read body"));
+        assert!(payload["error"]["data"]
+            .as_str()
+            .unwrap()
+            .contains("failed to read body"));
     }
 
     #[tokio::test]

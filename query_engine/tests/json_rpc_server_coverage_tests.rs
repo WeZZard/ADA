@@ -1,8 +1,7 @@
 // Unit tests specifically targeting coverage gaps in the JSON-RPC server implementation
 
 use query_engine::server::{
-    ConnectionManager, ConnectionManagerConfig, JsonRpcServer, JsonRpcServerConfig,
-    RateLimiter,
+    ConnectionManager, ConnectionManagerConfig, JsonRpcServer, JsonRpcServerConfig, RateLimiter,
 };
 use serde_json::json;
 use std::net::IpAddr;
@@ -118,9 +117,7 @@ fn json_rpc_server_handler_registry_getter() {
     let server = JsonRpcServer::new();
 
     // Register a handler
-    server.register_sync("test_method", |_params| {
-        Ok(json!({"status": "ok"}))
-    });
+    server.register_sync("test_method", |_params| Ok(json!({"status": "ok"})));
 
     // Get the handler registry
     let registry = server.handler_registry();
@@ -140,9 +137,9 @@ async fn json_rpc_server_serve_method() {
         // We'll cancel it with abort()
         let addr: std::net::SocketAddr = "127.0.0.1:0".parse().unwrap();
         let listener = std::net::TcpListener::bind(addr).expect("bind");
-        let _ = server.serve_on_listener(listener, async {
-            sleep(Duration::from_millis(10)).await
-        }).await;
+        let _ = server
+            .serve_on_listener(listener, async { sleep(Duration::from_millis(10)).await })
+            .await;
     });
 
     // Give it a moment to start
@@ -163,9 +160,10 @@ fn json_rpc_server_multiple_handler_types() {
     // Register both sync and async handlers
     server.register_sync("sync_handler", |_| Ok(json!({"type": "sync"})));
 
-    server.register_async("async_handler", |_| async move {
-        Ok(json!({"type": "async"}))
-    });
+    server.register_async(
+        "async_handler",
+        |_| async move { Ok(json!({"type": "async"})) },
+    );
 
     let registry = server.handler_registry();
     assert!(registry.contains("sync_handler"));

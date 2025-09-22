@@ -95,7 +95,11 @@ mod tests {
     #![allow(non_snake_case)]
 
     use super::*;
-    use std::{net::{IpAddr, Ipv4Addr}, thread, time::Duration};
+    use std::{
+        net::{IpAddr, Ipv4Addr},
+        thread,
+        time::Duration,
+    };
 
     fn localhost() -> IpAddr {
         IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1))
