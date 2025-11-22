@@ -14,7 +14,7 @@
   - Assert: `frida_script_load_finish` returns error with timeout-class; script unloaded; controller failed.
 
 - `async_load__success__then_no_timeout_and_no_error`
-  - Arrange: short symbol count, long `max_ms`.
+  - Arrange: short symbol count; computed unified timeout.
   - Act: load completes before deadline.
   - Assert: no error; readiness gate waits; no immediate resume.
 
@@ -23,13 +23,13 @@
   - Act: fire detach while loop active.
   - Assert: loop quits; controller failed; no resume.
 
-- `timeout_compute__from_symbol_count__then_clamped_with_tolerance`
-  - Arrange: set `startup_ms`, `per_symbol_ms`, `tolerance_pct`, `min_ms`, `max_ms`.
+- `timeout_compute__from_symbol_count__then_uses_tolerance`
+  - Arrange: set `startup_ms`, `per_symbol_ms`, `tolerance_pct`.
   - Act: compute `timeout_ms` for various counts.
-  - Assert: clamps applied; tolerance added; logs include parameters.
+  - Assert: tolerance applied; logs include parameters.
 
-- `env_override__ADA_SCRIPT_LOAD_TIMEOUT_MS__then_bypass_estimation`
-  - Arrange: set `ADA_SCRIPT_LOAD_TIMEOUT_MS`.
+- `env_override__ADA_STARTUP_TIMEOUT__then_bypass_estimation`
+  - Arrange: set `ADA_STARTUP_TIMEOUT`.
   - Act: compute timeout.
   - Assert: uses override value; estimation skipped.
 
@@ -57,24 +57,15 @@
 
 ### CLI / Env Behavior
 
-- `cli_max_ms__human__default_60s__then_applied`
-  - Arrange: `--user-type human`; no explicit `--hook-timeout-max-ms`.
+- `cli_override__startup_timeout__then_timeout_set`
+  - Arrange: `--startup-timeout 90000`.
   - Act: compute timeout.
-  - Assert: `max_ms=60000` applied.
+  - Assert: timeout is 90000 ms and estimation bypassed.
 
-- `cli_max_ms__ai__default_180s__then_applied`
-  - Arrange: `--user-type ai` or `--ai-agent`; no explicit max.
-  - Act: compute timeout.
-  - Assert: `max_ms=180000` applied.
-
-- `cli_override__hook_timeout_max_ms__then_cap_changed`
-  - Arrange: `--hook-timeout-max-ms 90000`.
-  - Act: compute timeout.
-  - Assert: cap is 90000.
-
-- `env_user_type__ADA_USER_TYPE__then_defaults_match`
-  - Arrange: set `ADA_USER_TYPE` and omit CLI.
-  - Act/Assert: defaults match expected cap.
+- `env_calibration__startup_params__then_estimation_uses_values`
+  - Arrange: set `ADA_STARTUP_WARM_UP_DURATION`, `ADA_STARTUP_PER_SYMBOL_COST`, `ADA_STARTUP_TIMEOUT_TOLERANCE`.
+  - Act: compute timeout from symbol count.
+  - Assert: uses env values; logs include parameters.
 
 ### Stress & Reliability
 
@@ -90,11 +81,11 @@
 
 ## Instrumentation
 
-- Capture logs for symbol count, computed timeout, caps, and phases.
+- Capture logs for symbol count, computed timeout, and phases.
 - Verify readiness flag transitions in `control_block_`.
 
 ## Pass Criteria
 
 - All unit and integration tests pass.
-- Timeout behavior and gating verified under both human and AI defaults, with CLI/env overrides.
+- Timeout behavior and gating verified with unified policy and CLI/env overrides.
 - No premature resume; no resource leaks; telemetry is present.

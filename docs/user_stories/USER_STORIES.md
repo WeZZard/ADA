@@ -127,6 +127,10 @@ This activity is focused on the process of running a program to generate a trace
     - I want to select “key symbols” using function IDs and update them live for focused detailed capture
     - So that detail capture focuses on relevant functions while the rest of the run retains a compact index.
 
+6. As an **AI Agent**
+    - I want the tracer to compute a single principled startup timeout from the planned hook workload plus tolerance and to enforce it asynchronously
+    - So that hooks complete installation before I resume and begin analysis; in rare cases I can override the timeout with a single parameter.
+
 #### Persona: Human Developer
 
 1. As a **Human Developer**
@@ -148,6 +152,10 @@ This activity is focused on the process of running a program to generate a trace
 5. As a **Human Developer**
     - I want to see tracer impact metrics (overhead %, ring utilization, sustained write rate) during/after a run
     - So that I can judge whether tracing perturbed program timing.
+
+6. As a **Human Developer**
+    - I want a single, predictable startup timeout policy that waits for hooks to finish installing, with an optional expert override in milliseconds (`--startup-timeout`)
+    - So that the tool serves the debugging task purpose rather than local preferences.
 
 ---
 

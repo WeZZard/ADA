@@ -107,6 +107,19 @@ sudo dseditgroup -o edit -t user -a "$USER" _developer
 </plist>
 ```
 
+## Runtime Controls (Startup Timeout)
+
+The tracer enforces a unified startup timeout derived from the estimated hook installation workload plus tolerance. For expert scenarios, you may override or calibrate:
+
+- CLI: `--startup-timeout <ms>` (milliseconds)
+- Environment overrides:
+  - `ADA_STARTUP_TIMEOUT` — hard override of the computed timeout (milliseconds)
+  - `ADA_STARTUP_WARM_UP_DURATION` — warm-up duration used in estimation (milliseconds)
+  - `ADA_STARTUP_PER_SYMBOL_COST` — per-symbol cost used in estimation (milliseconds)
+  - `ADA_STARTUP_TIMEOUT_TOLERANCE` — fractional tolerance (e.g., 0.15 for 15%)
+
+Use overrides sparingly; the default computed timeout is designed to serve the debugging task’s purpose: install hooks completely, then observe behavior.
+
 - Re-sign (example):
 
 ```bash

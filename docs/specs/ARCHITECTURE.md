@@ -133,6 +133,10 @@ class SharedMemory;         // Shared memory interface
 class HookManager;          // Function hook installation
 ```
 
+### Asynchronous Loader (Startup)
+
+The `FridaController` performs agent script loading asynchronously using `frida_script_load` with `GCancellable` and a temporary GLib `GMainLoop`. A unified startup timeout is computed from the estimated hook installation workload plus tolerance; cancellation enforces this deadline. The controller gates resume on an explicit readiness signal from the agent to ensure hooks are fully installed before execution continues.
+
 ### Query Engine (Python)
 
 **Responsibilities**:

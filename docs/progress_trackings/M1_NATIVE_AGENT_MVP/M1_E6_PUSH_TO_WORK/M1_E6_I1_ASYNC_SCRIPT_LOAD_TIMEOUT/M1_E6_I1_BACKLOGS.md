@@ -1,3 +1,7 @@
+---
+status: incomplete
+---
+
 # Backlogs
 
 ## Overview
@@ -13,12 +17,12 @@
 | AL-001 | Switch to async load with `GCancellable` and `GMainLoop` | P0 | 6h | None | `frida_script_load` used at `tracer_backend/src/controller/frida_controller.cpp:633`; loop quits on finish/timeout; errors classified |
 | AL-002 | Compute timeout from symbol count + tolerance | P0 | 4h | AL-005 | Formula applied; env/CLI caps enforced; logs include parameters |
 | AL-003 | Gate resume on readiness signal | P0 | 4h | AL-001 | Resume only after ready; `tracer_backend/src/controller/frida_controller.cpp:470–483` gated |
-| AL-004 | CLI parsing for `--hook-timeout-max-ms` and `--user-type` | P0 | 3h | None | Options parsed in `tracer_backend/src/controller/main.c:57–84`; usage updated |
+| AL-004 | CLI parsing for `--startup-timeout <ms>` | P0 | 3h | None | Option parsed in `tracer_backend/src/controller/main.c:57–84`; usage updated |
 | AL-005 | Symbol count retrieval (agent export and loader fallback) | P0 | 6h | None | `agent_estimate_hooks()` implemented; loader fallback enumerates and logs |
 | AL-006 | Error handling and detach abort | P0 | 2h | AL-001 | Timeout recognized; script unloaded; detach aborts; no resume on failure |
 | AL-007 | Telemetry (phase, parameters, elapsed) | P1 | 3h | AL-001 | Logs show symbol count, computed timeout, caps, progress |
 | AL-008 | Progress-driven deadline extension (optional) | P2 | 4h | AL-005, AL-007 | Deadline extends on progress ticks, capped at `max_ms` |
-| AL-009 | Environment variable support | P1 | 2h | AL-004 | `ADA_*` vars read; `ADA_SCRIPT_LOAD_TIMEOUT_MS` hard override |
+| AL-009 | Environment variable support | P1 | 2h | AL-004 | `ADA_*` vars read; `ADA_STARTUP_TIMEOUT` override; calibration via `ADA_STARTUP_WARM_UP_DURATION`, `ADA_STARTUP_PER_SYMBOL_COST`, `ADA_STARTUP_TIMEOUT_TOLERANCE` |
 | AL-010 | Tests: unit and integration | P0 | 8h | AL-001..AL-006 | Test plan implemented and passing |
 
 ## Acceptance Criteria

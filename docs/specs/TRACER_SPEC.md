@@ -63,6 +63,22 @@ This document specifies the behavior and requirements of the ADA Tracer componen
     - Unfixable platform constraints (e.g., system binary protection)
   - Use plain language appropriate for developers, not kernel-level diagnostics.
 
+- FR-013 (MUST) Asynchronous agent loader
+  - Use the asynchronous script load API with `GCancellable` and a temporary GLib `GMainLoop` to enforce a startup timeout without blocking the control plane.
+  - Cancellation must be cleanly handled and surfaced as a timeout-class error.
+
+- FR-014 (MUST) Readiness gating
+  - Do not resume the target until the agent signals that hooks are fully installed (readiness).
+  - Readiness may be a shared-memory flag or a loader message; resume gates must be explicit.
+
+- FR-015 (MUST) Unified startup timeout policy
+  - Compute a single startup timeout from the estimated hook installation workload plus tolerance: `timeout_ms = (warm_up_ms + per_symbol_ms × planned_hook_count) × (1 + tolerance)`.
+  - Estimation inputs are configurable via environment: `ADA_STARTUP_WARM_UP_DURATION`, `ADA_STARTUP_PER_SYMBOL_COST`, `ADA_STARTUP_TIMEOUT_TOLERANCE`.
+  - An expert override `ADA_STARTUP_TIMEOUT` or CLI `--startup-timeout <ms>` may set the timeout directly (milliseconds), bypassing estimation.
+
+- FR-016 (SHOULD) Startup telemetry
+  - Emit phase logs and parameters during startup: planned hook count, computed timeout, and elapsed checkpoints.
+
 ## 6. Performance and Scale Requirements (PR)
 - PR-001 (MUST) Hook coverage startup time
   - On an Apple Silicon dev machine (M3-class), installing hooks for ~5k symbols must complete in ≤ 3 seconds for the main binary; overall startup including DSOs ≤ 8 seconds under typical app loads.
