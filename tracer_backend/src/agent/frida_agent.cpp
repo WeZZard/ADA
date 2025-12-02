@@ -659,26 +659,10 @@ void AgentContext::install_hooks() {
             
             const char* path = gum_module_get_path(mod);
             
-            if (path && strstr(path, "libc++.1.dylib")) {
-                LOG_HOOK_INSTALL("[Agent] Skipping install hooks to libc++.1.dylib module (validation test)\n");
-                continue;
-            }
-            if (path && strstr(path, "libc++abi.dylib")) {
-                LOG_HOOK_INSTALL("[Agent] Skipping install hooks to libc++abi.dylib module (validation test)\n");
-                continue;
-            }
-            if (path && strstr(path, "libsystem")) {
-                LOG_HOOK_INSTALL("[Agent] Skipping install hooks to libsystem*(%s) module (validation test)\n", path);
-                continue;
-            }
-            if (path && strstr(path, "libSystem.B.dylib")) {
-                LOG_HOOK_INSTALL("[Agent] Skipping install hooks to libSystem.B.dylib module (validation test)\n");
-                continue;
-            }
-            
-            // Dynamic self-exclusion: skip the agent's own module
-            if (path && !agent_path_.empty() && strcmp(path, agent_path_.c_str()) == 0) {
-                LOG_HOOK_INSTALL("[Agent] Skipping install hooks to agent module: %s (prevent self-hooking)\n", path);
+            if (mod != main_mod) {
+                // Yes. We only install hooks to the main module. Maybe we need to install hooks
+                // to the functions offer system semantics later.
+                LOG_HOOK_INSTALL("[Agent] Skipping install hooks to non-main module: %s\n", path);
                 continue;
             }
             
@@ -726,9 +710,9 @@ void AgentContext::install_hooks() {
                 }
                 plan_index += 1;
             }
-            // agent_log("[Agent] Processes hook plan for module: %s\n", gum_module_get_path(static_cast<GumModule*>(mod)));
+            LOG_HOOK_INSTALL("[Agent] Processes hook plan for module: %s\n", gum_module_get_path(static_cast<GumModule*>(mod)));
         }
-        // agent_log("[Agent] Processes hook plan for all modules.\n");
+        LOG_HOOK_INSTALL("[Agent] Processes hook plan for all modules.\n");
         g_object_unref(map);
     }
 
