@@ -194,6 +194,11 @@ Debugging steps:
    - **Check 2**: Skeletons link with test harness
    - **Check 3**: Cross-language FFI boundaries validate
 
+   When failures occur, automatically perform:
+   - Interface Check → Verify C API/Rust traits/Python Protocols compile
+   - Implementation Check → Validate against interface contracts
+   - Test Check → Ensure tests use interfaces correctly
+
 4. **Performance Contracts in Interfaces**
    - `<1μs` registration latency (enforced by benchmark)
    - `<10ns` fast path access (TLS)
@@ -214,17 +219,6 @@ Debugging steps:
    - No complex types across boundaries
    - Atomic operations for synchronization
    - Cache-line aligned for performance
-
-## Interface-Driven Development Workflow (MANDATORY)
-
-### Core Principle: Interfaces Compile First
-**No implementation work begins until interfaces compile successfully.**
-
-### Triple-Check Protocol for ADA
-When failures occur, agents automatically perform:
-1. **Interface Check** → Verify C API/Rust traits/Python Protocols compile
-2. **Implementation Check** → Validate against interface contracts
-3. **Test Check** → Ensure tests use interfaces correctly
 
 ## MANDATORY: Quality Requirements
 
