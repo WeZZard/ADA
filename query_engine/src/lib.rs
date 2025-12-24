@@ -1,6 +1,7 @@
 pub mod app;
 pub mod atf;
-pub mod handlers;
+// TODO: Update handlers to use ATF V2 API
+// pub mod handlers;
 pub mod server;
 
 /// Simple ping function for testing

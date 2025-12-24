@@ -16,7 +16,7 @@
 
 #include <tracer_backend/controller/shutdown.h>
 #include "../../../src/drain_thread/drain_thread_private.h"
-#include <tracer_backend/atf/atf_v4_writer.h>
+#include <tracer_backend/atf/atf_thread_writer.h>
 #include <tracer_backend/utils/thread_registry.h>
 
 extern "C" int timer_cancel(void);

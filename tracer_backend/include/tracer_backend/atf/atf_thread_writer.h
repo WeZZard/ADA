@@ -9,8 +9,8 @@
 #ifndef TRACER_BACKEND_ATF_THREAD_WRITER_H
 #define TRACER_BACKEND_ATF_THREAD_WRITER_H
 
-#include <tracer_backend/atf/atf_v2_types.h>
 #include <stddef.h>
+#include <stdint.h>
 
 #ifdef __cplusplus
 extern "C" {

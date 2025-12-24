@@ -369,24 +369,6 @@ fn main() {
         ("build/test_timer", "test/test_timer"),
         ("build/tests/unit/timer/test_timer", "test/test_timer"),
         ("out/bin/test_timer", "test/test_timer"),
-        ("build/test_atf_v4_writer", "test/test_atf_v4_writer"),
-        (
-            "build/tests/unit/atf_v4/test_atf_v4_writer",
-            "test/test_atf_v4_writer",
-        ),
-        ("out/bin/test_atf_v4_writer", "test/test_atf_v4_writer"),
-        (
-            "build/test_atf_v4_writer_integration",
-            "test/test_atf_v4_writer_integration",
-        ),
-        (
-            "build/tests/integration/atf_v4/test_atf_v4_writer_integration",
-            "test/test_atf_v4_writer_integration",
-        ),
-        (
-            "out/bin/test_atf_v4_writer_integration",
-            "test/test_atf_v4_writer_integration",
-        ),
         // ATF v2 unit tests
         ("build/test_atf_v2_layout", "test/test_atf_v2_layout"),
         (

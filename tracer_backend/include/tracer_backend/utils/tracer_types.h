@@ -73,17 +73,17 @@ typedef struct __attribute__((packed)) {
     uint32_t event_kind;
     uint32_t call_depth;
     uint32_t _pad1;
-    
+
     // ARM64 ABI registers (x0-x7 for arguments)
     uint64_t x_regs[8];
     uint64_t lr;            // Link register
     uint64_t fp;            // Frame pointer
     uint64_t sp;            // Stack pointer
-    
+
     // Stack snapshot (128 bytes default)
     uint8_t stack_snapshot[128];
     uint32_t stack_size;
-    
+
     // Padding to 512 bytes
     uint8_t _padding[512 - 248];
 } DetailEvent;

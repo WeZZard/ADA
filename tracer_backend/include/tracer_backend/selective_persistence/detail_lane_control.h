@@ -17,7 +17,7 @@ extern "C" {
 struct MarkingPolicy;
 struct ThreadRegistry;
 struct ThreadLaneSet;
-struct AtfV4Writer;
+struct AtfThreadWriter;
 
 // Opaque detail lane control state.
 typedef struct DetailLaneControl DetailLaneControl;
@@ -66,7 +66,7 @@ bool detail_lane_control_perform_selective_swap(DetailLaneControl* control,
 // Persist window metadata to an ATF writer.
 bool detail_lane_control_write_window_metadata(const DetailLaneControl* control,
                                                const SelectivePersistenceWindow* window,
-                                               struct AtfV4Writer* writer);
+                                               struct AtfThreadWriter* writer);
 
 // Record that a selective dump has been performed and prepare a new window.
 void detail_lane_control_mark_dump_complete(DetailLaneControl* control,

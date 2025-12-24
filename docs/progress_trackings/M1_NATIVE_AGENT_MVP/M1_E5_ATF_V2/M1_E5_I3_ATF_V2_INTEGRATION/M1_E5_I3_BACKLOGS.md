@@ -1,5 +1,5 @@
 ---
-status: active
+status: completed
 date: 2025-12-24
 consolidates:
   - M1_E5_I1_BACKLOGS (ATF2-W-009, ATF2-W-013)

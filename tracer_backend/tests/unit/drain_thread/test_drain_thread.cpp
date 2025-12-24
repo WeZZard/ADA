@@ -13,7 +13,7 @@
 extern "C" {
 #include <pthread.h>
 #include <tracer_backend/ada/thread.h>
-#include <tracer_backend/atf/atf_v4_writer.h>
+#include <tracer_backend/atf/atf_thread_writer.h>
 #include <tracer_backend/drain_thread/drain_thread.h>
 #include <tracer_backend/utils/thread_registry.h>
 
@@ -1012,19 +1012,249 @@ TEST(DrainThreadUnit,
   drain_thread_destroy(drain);
 }
 
+// ===========================================
+// ATF V2 Writer Integration Tests (M1_E5_I3)
+// ===========================================
+
 TEST(DrainThreadUnit,
-     drain_thread__attach_atf_writer__then_retrievable) {
+     drain_thread__start_session__then_creates_directory) {
   HookScope guard;
   RegistryHarness harness(2);
   DrainThread *drain = create_drain(harness, nullptr);
   ASSERT_NE(drain, nullptr);
 
-  AtfV4Writer writer{};
-  drain_thread_set_atf_writer(drain, &writer);
-  EXPECT_EQ(drain_thread_get_atf_writer(drain), &writer);
+  const char* session_dir = "/tmp/ada_test_session_start";
+  system(("rm -rf " + std::string(session_dir)).c_str());
 
-  drain_thread_set_atf_writer(drain, nullptr);
-  EXPECT_EQ(drain_thread_get_atf_writer(drain), nullptr);
+  EXPECT_EQ(drain_thread_start_session(drain, session_dir), 0);
+
+  drain_thread_destroy(drain);
+  system(("rm -rf " + std::string(session_dir)).c_str());
+}
+
+TEST(DrainThreadUnit,
+     drain_thread__stop_session__then_finalizes_writers) {
+  HookScope guard;
+  RegistryHarness harness(2);
+  DrainThread *drain = create_drain(harness, nullptr);
+  ASSERT_NE(drain, nullptr);
+
+  const char* session_dir = "/tmp/ada_test_session_stop";
+  system(("rm -rf " + std::string(session_dir)).c_str());
+  system(("mkdir -p " + std::string(session_dir)).c_str());
+
+  ASSERT_EQ(drain_thread_start_session(drain, session_dir), 0);
+
+  // Create a mock writer by triggering get_atf_writer
+  AtfThreadWriter* writer = drain_thread_get_atf_writer(drain, 0);
+  EXPECT_NE(writer, nullptr);
+
+  EXPECT_EQ(drain_thread_stop_session(drain), 0);
+
+  // After stop, writer should be null
+  writer = drain_thread_get_atf_writer(drain, 0);
+  EXPECT_EQ(writer, nullptr);
+
+  drain_thread_destroy(drain);
+  system(("rm -rf " + std::string(session_dir)).c_str());
+}
+
+TEST(DrainThreadUnit,
+     drain_thread__stop_session__then_generates_manifest) {
+  HookScope guard;
+  RegistryHarness harness(2);
+  DrainThread *drain = create_drain(harness, nullptr);
+  ASSERT_NE(drain, nullptr);
+
+  const char* session_dir = "/tmp/ada_test_session_manifest";
+  system(("rm -rf " + std::string(session_dir)).c_str());
+  system(("mkdir -p " + std::string(session_dir)).c_str());
+
+  ASSERT_EQ(drain_thread_start_session(drain, session_dir), 0);
+
+  // Create writers for multiple threads
+  drain_thread_get_atf_writer(drain, 0);
+  drain_thread_get_atf_writer(drain, 1);
+
+  EXPECT_EQ(drain_thread_stop_session(drain), 0);
+
+  // Check manifest exists
+  std::string manifest_path = std::string(session_dir) + "/manifest.json";
+  FILE* manifest_file = fopen(manifest_path.c_str(), "r");
+  EXPECT_NE(manifest_file, nullptr);
+  if (manifest_file) {
+    fclose(manifest_file);
+  }
+
+  drain_thread_destroy(drain);
+  system(("rm -rf " + std::string(session_dir)).c_str());
+}
+
+TEST(DrainThreadUnit,
+     drain_thread__get_atf_writer_before_session__then_returns_null) {
+  HookScope guard;
+  RegistryHarness harness(2);
+  DrainThread *drain = create_drain(harness, nullptr);
+  ASSERT_NE(drain, nullptr);
+
+  // Before session start, writer should be null
+  AtfThreadWriter* writer = drain_thread_get_atf_writer(drain, 0);
+  EXPECT_EQ(writer, nullptr);
+
+  drain_thread_destroy(drain);
+}
+
+TEST(DrainThreadUnit,
+     drain_thread__get_atf_writer_after_start__then_creates_writer) {
+  HookScope guard;
+  RegistryHarness harness(2);
+  DrainThread *drain = create_drain(harness, nullptr);
+  ASSERT_NE(drain, nullptr);
+
+  const char* session_dir = "/tmp/ada_test_session_writer";
+  system(("rm -rf " + std::string(session_dir)).c_str());
+  system(("mkdir -p " + std::string(session_dir)).c_str());
+
+  ASSERT_EQ(drain_thread_start_session(drain, session_dir), 0);
+
+  // After session start, writer should be created
+  AtfThreadWriter* writer = drain_thread_get_atf_writer(drain, 0);
+  EXPECT_NE(writer, nullptr);
+
+  // Second call should return same writer
+  AtfThreadWriter* writer2 = drain_thread_get_atf_writer(drain, 0);
+  EXPECT_EQ(writer, writer2);
+
+  EXPECT_EQ(drain_thread_stop_session(drain), 0);
+
+  drain_thread_destroy(drain);
+  system(("rm -rf " + std::string(session_dir)).c_str());
+}
+
+TEST(DrainThreadUnit,
+     drain_thread__set_atf_writer__then_stores_writer) {
+  HookScope guard;
+  RegistryHarness harness(2);
+  DrainThread *drain = create_drain(harness, nullptr);
+  ASSERT_NE(drain, nullptr);
+
+  const char* session_dir = "/tmp/ada_test_session_set_writer";
+  system(("rm -rf " + std::string(session_dir)).c_str());
+  system(("mkdir -p " + std::string(session_dir)).c_str());
+
+  // Create a writer manually
+  AtfThreadWriter* writer = atf_thread_writer_create(session_dir, 0, 1);
+  ASSERT_NE(writer, nullptr);
+
+  // Set it
+  drain_thread_set_atf_writer(drain, 0, writer);
+
+  // Get it back
+  AtfThreadWriter* retrieved = drain_thread_get_atf_writer(drain, 0);
+  EXPECT_EQ(retrieved, writer);
+
+  // Cleanup
+  atf_thread_writer_finalize(writer);
+  atf_thread_writer_close(writer);
+
+  drain_thread_destroy(drain);
+  system(("rm -rf " + std::string(session_dir)).c_str());
+}
+
+TEST(DrainThreadUnit,
+     drain_thread__invalid_thread_id__then_returns_null) {
+  HookScope guard;
+  RegistryHarness harness(2);
+  DrainThread *drain = create_drain(harness, nullptr);
+  ASSERT_NE(drain, nullptr);
+
+  const char* session_dir = "/tmp/ada_test_session_invalid";
+  system(("rm -rf " + std::string(session_dir)).c_str());
+  system(("mkdir -p " + std::string(session_dir)).c_str());
+
+  ASSERT_EQ(drain_thread_start_session(drain, session_dir), 0);
+
+  // Invalid thread ID (>= MAX_THREADS)
+  AtfThreadWriter* writer = drain_thread_get_atf_writer(drain, 9999);
+  EXPECT_EQ(writer, nullptr);
+
+  EXPECT_EQ(drain_thread_stop_session(drain), 0);
+
+  drain_thread_destroy(drain);
+  system(("rm -rf " + std::string(session_dir)).c_str());
+}
+
+TEST(DrainThreadUnit,
+     drain_thread__session_not_active__then_fails_gracefully) {
+  HookScope guard;
+  RegistryHarness harness(2);
+  DrainThread *drain = create_drain(harness, nullptr);
+  ASSERT_NE(drain, nullptr);
+
+  // Stop without starting should succeed (noop)
+  EXPECT_EQ(drain_thread_stop_session(drain), 0);
+
+  drain_thread_destroy(drain);
+}
+
+TEST(DrainThreadUnit,
+     drain_thread__session_already_active__then_returns_error) {
+  HookScope guard;
+  RegistryHarness harness(2);
+  DrainThread *drain = create_drain(harness, nullptr);
+  ASSERT_NE(drain, nullptr);
+
+  const char* session_dir = "/tmp/ada_test_session_duplicate";
+  system(("rm -rf " + std::string(session_dir)).c_str());
+  system(("mkdir -p " + std::string(session_dir)).c_str());
+
+  ASSERT_EQ(drain_thread_start_session(drain, session_dir), 0);
+
+  // Second start should fail
+  EXPECT_EQ(drain_thread_start_session(drain, session_dir), -EALREADY);
+
+  EXPECT_EQ(drain_thread_stop_session(drain), 0);
+
+  drain_thread_destroy(drain);
+  system(("rm -rf " + std::string(session_dir)).c_str());
+}
+
+TEST(DrainThreadUnit,
+     drain_thread__start_session_null_inputs__then_returns_error) {
+  HookScope guard;
+  RegistryHarness harness(2);
+  DrainThread *drain = create_drain(harness, nullptr);
+  ASSERT_NE(drain, nullptr);
+
+  // Null drain
+  EXPECT_EQ(drain_thread_start_session(nullptr, "/tmp/test"), -EINVAL);
+
+  // Null session_dir
+  EXPECT_EQ(drain_thread_start_session(drain, nullptr), -EINVAL);
+
+  drain_thread_destroy(drain);
+}
+
+TEST(DrainThreadUnit,
+     drain_thread__stop_session_null_input__then_returns_error) {
+  EXPECT_EQ(drain_thread_stop_session(nullptr), -EINVAL);
+}
+
+TEST(DrainThreadUnit,
+     drain_thread__set_writer_null_drain__then_noops) {
+  HookScope guard;
+  drain_thread_set_atf_writer(nullptr, 0, nullptr);
+}
+
+TEST(DrainThreadUnit,
+     drain_thread__set_writer_invalid_thread_id__then_noops) {
+  HookScope guard;
+  RegistryHarness harness(2);
+  DrainThread *drain = create_drain(harness, nullptr);
+  ASSERT_NE(drain, nullptr);
+
+  // Invalid thread ID should be ignored
+  drain_thread_set_atf_writer(drain, 9999, nullptr);
 
   drain_thread_destroy(drain);
 }

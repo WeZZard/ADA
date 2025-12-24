@@ -1,10 +1,12 @@
-pub mod error;
-pub mod event;
-pub mod manifest;
-pub mod reader;
+// ATF V2 is now the primary format
 pub mod v2;
 
-pub use error::{AtfError, AtfResult};
-pub use event::{ParsedEvent, ParsedEventKind};
-pub use manifest::ManifestInfo;
-pub use reader::{AtfReader, EventStream};
+// Re-export V2 types as top-level for convenience
+pub use v2::{
+    error::{AtfV2Error, Result as AtfV2Result},
+    types::{IndexEvent, DetailEvent},
+    session::{SessionReader, Manifest, ThreadInfo},
+    thread::ThreadReader,
+    index::IndexReader,
+    detail::DetailReader,
+};

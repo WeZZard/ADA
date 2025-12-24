@@ -5,7 +5,6 @@
 #include <unistd.h>
 
 #include <tracer_backend/controller/shutdown.h>
-#include <tracer_backend/atf/atf_v4_writer.h>
 #include <tracer_backend/drain_thread/drain_thread.h>
 #include <tracer_backend/timer/timer.h>
 #include <tracer_backend/utils/thread_registry.h>
@@ -362,42 +361,9 @@ static void shutdown_manager_wait_for_drain_completion(ShutdownManager* manager)
 }
 
 static uint64_t shutdown_manager_sync_files(ShutdownManager* manager) {
-    if (!manager || !manager->drain_thread) {
-        return 0;
-    }
-
-    AtfV4Writer* writer = drain_thread_get_atf_writer(manager->drain_thread);
-    if (!writer) {
-        return 0;
-    }
-
-    uint64_t files_synced = 0;
-
-    if (writer->events_fd >= 0) {
-        if (fsync(writer->events_fd) == 0) {
-            ++files_synced;
-        }
-    }
-
-    if (writer->manifest_fp) {
-        (void)fflush(writer->manifest_fp);
-        int manifest_fd = fileno(writer->manifest_fp);
-        if (manifest_fd >= 0) {
-            if (fsync(manifest_fd) == 0) {
-                ++files_synced;
-            }
-        }
-    } else if (writer->manifest_enabled) {
-        int fd = open(writer->manifest_path, O_RDONLY);
-        if (fd >= 0) {
-            if (fsync(fd) == 0) {
-                ++files_synced;
-            }
-            close(fd);
-        }
-    }
-
-    return files_synced;
+    // TODO: Update to use ATF V2 session API
+    (void)manager;
+    return 0;
 }
 
 static uint64_t shutdown_manager_events_in_flight(const ShutdownManager* manager) {
@@ -479,15 +445,10 @@ void shutdown_manager_print_summary(const ShutdownManager* manager) {
 
     double duration_ms = shutdown_manager_duration_ms(manager);
 
+    // TODO: Get metrics from ATF V2 session
     uint64_t total_events = 0;
     uint64_t bytes_written = 0;
-    if (manager->drain_thread) {
-        AtfV4Writer* writer = drain_thread_get_atf_writer(manager->drain_thread);
-        if (writer) {
-            total_events = atf_v4_writer_event_count(writer);
-            bytes_written = atf_v4_writer_bytes_written(writer);
-        }
-    }
+    (void)manager; // Suppress unused warning for now
 
     uint64_t events_in_flight = shutdown_manager_events_in_flight(manager);
 

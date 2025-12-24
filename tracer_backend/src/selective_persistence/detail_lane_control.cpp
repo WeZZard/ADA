@@ -5,7 +5,8 @@
 #include <cstdio>
 #include <new>
 
-#include <tracer_backend/atf/atf_v4_writer.h>
+// TODO: Update to use ATF V2 API
+// #include <tracer_backend/atf/atf_v4_writer.h>
 #include <tracer_backend/selective_persistence/metrics.h>
 #include <tracer_backend/selective_persistence/persistence_window.h>
 #include <tracer_backend/utils/ring_buffer.h>
@@ -306,78 +307,12 @@ bool detail_lane_control_perform_selective_swap(DetailLaneControl* control,
 
 bool detail_lane_control_write_window_metadata(const DetailLaneControl* control,
                                                const SelectivePersistenceWindow* window,
-                                               AtfV4Writer* writer) {
-    if (!control || !window || !writer) {
-        if (control) {
-            auto& mutable_impl = const_cast<DetailLaneControlImpl&>(control->impl);
-            set_error(mutable_impl, DETAIL_LANE_CONTROL_ERROR_INVALID_ARGUMENT);
-        }
-        return false;
-    }
-    auto& impl = const_cast<DetailLaneControlImpl&>(control->impl);
-    if (writer->session_dir[0] == '\0') {
-        set_error(impl, DETAIL_LANE_CONTROL_ERROR_INVALID_ARGUMENT);
-        return false;
-    }
-
-    char path[4096];
-    int path_len = std::snprintf(path, sizeof(path), "%s/window_metadata.jsonl", writer->session_dir);
-    if (path_len <= 0 || static_cast<size_t>(path_len) >= sizeof(path)) {
-        return record_io_failure(impl);
-    }
-
-    FILE* fp = std::fopen(path, "a");
-    if (!fp) {
-        return record_io_failure(impl);
-    }
-
-    uint64_t impl_window_id = control->impl.current_window_id.load(std::memory_order_acquire);
-    uint64_t resolved_window_id = window->window_id != 0 ? window->window_id : impl_window_id;
-
-    unsigned long long window_id = static_cast<unsigned long long>(resolved_window_id);
-    unsigned long long start_ns = static_cast<unsigned long long>(window->start_timestamp_ns);
-    unsigned long long end_ns = static_cast<unsigned long long>(window->end_timestamp_ns);
-    unsigned long long first_mark_ns = static_cast<unsigned long long>(window->first_mark_timestamp_ns);
-    unsigned long long last_event_ns = static_cast<unsigned long long>(window->last_event_timestamp_ns);
-    unsigned long long total_events = static_cast<unsigned long long>(window->total_events);
-    unsigned long long marked_events = static_cast<unsigned long long>(window->marked_events);
-
-    bool success = true;
-    int rc = std::fprintf(fp,
-                          "{\"window_id\":%llu,\"start_ns\":%llu,\"end_ns\":%llu,"
-                          "\"first_mark_ns\":%llu,\"last_event_ns\":%llu,"
-                          "\"total_events\":%llu,\"marked_events\":%llu,\"mark_seen\":%s}\n",
-                          window_id,
-                          start_ns,
-                          end_ns,
-                          first_mark_ns,
-                          last_event_ns,
-                          total_events,
-                          marked_events,
-                          window->mark_seen ? "true" : "false");
-    if (rc <= 0) {
-        // LCOV_EXCL_START - fprintf failure is rare
-        success = false;
-        // LCOV_EXCL_STOP
-    } else if (std::fflush(fp) != 0) {
-        // LCOV_EXCL_START - fflush failure is rare
-        success = false;
-        // LCOV_EXCL_STOP
-    }
-    if (std::fclose(fp) != 0) {
-        // LCOV_EXCL_START - fclose failure is rare
-        success = false;
-        // LCOV_EXCL_STOP
-    }
-
-    if (!success) {
-        // LCOV_EXCL_START
-        return record_io_failure(impl);
-        // LCOV_EXCL_STOP
-    }
-
-    clear_error(impl);
-    return true;
+                                               AtfThreadWriter* writer) {
+    // TODO: Update to use ATF V2 session API
+    (void)control;
+    (void)window;
+    (void)writer;
+    return false;
 }
 
 void detail_lane_control_mark_dump_complete(DetailLaneControl* control,

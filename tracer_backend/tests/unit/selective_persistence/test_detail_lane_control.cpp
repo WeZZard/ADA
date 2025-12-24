@@ -54,7 +54,7 @@ extern "C" {
 #include <tracer_backend/utils/thread_registry.h>
 #include <tracer_backend/utils/ring_pool.h>
 #include <tracer_backend/utils/ring_buffer.h>
-#include <tracer_backend/atf/atf_v4_writer.h>
+#include <tracer_backend/atf/atf_thread_writer.h>
 }
 
 #include <tracer_backend/selective_persistence/detail_lane_control.h>

@@ -4,7 +4,7 @@
 #include <stdbool.h>
 #include <stdint.h>
 
-#include <tracer_backend/atf/atf_v4_writer.h>
+#include <tracer_backend/atf/atf_thread_writer.h>
 #include <tracer_backend/utils/tracer_types.h>
 #include <tracer_backend/metrics/global_metrics.h>
 
@@ -91,11 +91,13 @@ void drain_thread_get_metrics(const DrainThread* drain, DrainMetrics* out_metric
 // Update configuration (only allowed while not running)
 int drain_thread_update_config(DrainThread* drain, const DrainConfig* config);
 
-// Attach ATF V4 writer for persistence
-void drain_thread_set_atf_writer(DrainThread* drain, AtfV4Writer* writer);
+// Session management for ATF V2
+int drain_thread_start_session(DrainThread* drain, const char* session_dir);
+int drain_thread_stop_session(DrainThread* drain);
 
-// Retrieve attached ATF V4 writer
-AtfV4Writer* drain_thread_get_atf_writer(DrainThread* drain);
+// ATF V2 writer accessors
+AtfThreadWriter* drain_thread_get_atf_writer(DrainThread* drain, uint32_t thread_id);
+void drain_thread_set_atf_writer(DrainThread* drain, uint32_t thread_id, AtfThreadWriter* writer);
 
 // Access aggregated per-thread metrics (read-only view)
 const ada_global_metrics_t* drain_thread_get_thread_metrics_view(const DrainThread* drain);

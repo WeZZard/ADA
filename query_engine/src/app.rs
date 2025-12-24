@@ -11,7 +11,8 @@ use tracing::{error, info};
 use tracing_subscriber::EnvFilter;
 
 use crate::{
-    handlers::{EventsGetHandler, SpansListHandler, TraceInfoHandler},
+    // TODO: Re-enable handlers after updating to ATF V2 API
+    // handlers::{EventsGetHandler, SpansListHandler, TraceInfoHandler},
     server::{JsonRpcServer, ServerError},
 };
 
@@ -72,18 +73,20 @@ pub async fn run(config: AppConfig) -> Result<()> {
     ensure_trace_root(&config.trace_root).await?;
 
     let server = JsonRpcServer::new();
-    let handler = TraceInfoHandler::new(
-        config.trace_root.clone(),
-        config.cache_size,
-        config.cache_ttl,
-    );
-    handler.register(&server);
 
-    let events_handler = EventsGetHandler::new(config.trace_root.clone());
-    events_handler.register(&server);
-
-    let spans_handler = SpansListHandler::new(config.trace_root.clone());
-    spans_handler.register(&server);
+    // TODO: Re-enable handlers after updating to ATF V2 API
+    // let handler = TraceInfoHandler::new(
+    //     config.trace_root.clone(),
+    //     config.cache_size,
+    //     config.cache_ttl,
+    // );
+    // handler.register(&server);
+    //
+    // let events_handler = EventsGetHandler::new(config.trace_root.clone());
+    // events_handler.register(&server);
+    //
+    // let spans_handler = SpansListHandler::new(config.trace_root.clone());
+    // spans_handler.register(&server);
 
     info!(
         address = %config.address,

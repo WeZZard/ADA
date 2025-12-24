@@ -8,7 +8,7 @@
 #include <time.h>
 #include <unistd.h>
 
-#include <tracer_backend/atf/atf_v4_writer.h>
+#include <tracer_backend/atf/atf_thread_writer.h>
 
 #if defined(__has_attribute)
 #if __has_attribute(weak)
@@ -212,6 +212,38 @@ static void return_ring_to_producer(Lane* lane, uint32_t ring_idx) {
     }
 }
 
+// Get or create ATF thread writer for the given thread ID
+static AtfThreadWriter* get_or_create_thread_writer(DrainThread* drain, uint32_t thread_id) {
+    if (!drain || thread_id >= MAX_THREADS) {
+        return NULL;
+    }
+
+    // Fast path: writer already exists
+    if (drain->thread_writers[thread_id]) {
+        return drain->thread_writers[thread_id];
+    }
+
+    // Session must be active
+    if (!drain->session_active) {
+        return NULL;
+    }
+
+    // Create new thread writer
+    // Clock type: 1 = mach_continuous (macOS), 2 = QPC (Windows), 3 = boottime (Linux)
+    uint8_t clock_type = 1; // Default to mach_continuous for macOS
+    AtfThreadWriter* writer = atf_thread_writer_create(
+        drain->session_dir,
+        thread_id,
+        clock_type
+    );
+
+    if (writer) {
+        drain->thread_writers[thread_id] = writer;
+    }
+
+    return writer;
+}
+
 static uint32_t drain_lane(DrainThread* drain,
                            uint32_t slot_index,
                            Lane* lane,
@@ -228,11 +260,58 @@ static uint32_t drain_lane(DrainThread* drain,
     const uint32_t limit = compute_effective_limit(drain, final_pass);
     uint32_t processed = 0;
 
+    // Get ATF writer for this thread if session is active
+    AtfThreadWriter* writer = NULL;
+    if (drain->session_active && slot_index < MAX_THREADS) {
+        writer = get_or_create_thread_writer(drain, slot_index);
+    }
+
     while (processed < limit) {
         uint32_t ring_idx = lane_take_ring(lane);
         if (ring_idx == UINT32_MAX) {
             break;
         }
+
+        // Extract events from ring buffer and write to ATF V2
+        if (writer && drain->registry) {
+            RingBufferHeader* ring_hdr = thread_registry_get_ring_header_by_idx(
+                drain->registry, lane, ring_idx);
+
+            if (ring_hdr) {
+                if (is_detail) {
+                    // Detail lane - read DetailEvents
+                    DetailEvent detail_event;
+                    while (ring_buffer_read_raw(ring_hdr, sizeof(DetailEvent), &detail_event)) {
+                        // Write detail event to ATF V2
+                        atf_thread_writer_write_event(
+                            writer,
+                            detail_event.timestamp,
+                            detail_event.function_id,
+                            detail_event.event_kind,
+                            detail_event.call_depth,
+                            &detail_event,  // Full detail payload
+                            sizeof(DetailEvent)
+                        );
+                    }
+                } else {
+                    // Index lane - read IndexEvents
+                    IndexEvent index_event;
+                    while (ring_buffer_read_raw(ring_hdr, sizeof(IndexEvent), &index_event)) {
+                        // Write index event to ATF V2 (no detail payload)
+                        atf_thread_writer_write_event(
+                            writer,
+                            index_event.timestamp,
+                            index_event.function_id,
+                            index_event.event_kind,
+                            index_event.call_depth,
+                            NULL,  // No detail payload for index events
+                            0
+                        );
+                    }
+                }
+            }
+        }
+
         return_ring_to_producer(lane, ring_idx);
         ++processed;
     }
@@ -1010,7 +1089,9 @@ DrainThread* drain_thread_create(ThreadRegistry* registry, const DrainConfig* co
 
     drain->registry = registry;
     drain->config = local_config;
-    drain->atf_writer = NULL;
+    drain->session_dir[0] = '\0';
+    drain->session_active = false;
+    memset(drain->thread_writers, 0, sizeof(drain->thread_writers));
     drain->thread_started = false;
 
     drain_metrics_atomic_reset(&drain->metrics);
@@ -1137,9 +1218,9 @@ int drain_thread_stop(DrainThread* drain) {
         pthread_mutex_unlock(&drain->lifecycle_lock);
     }
 
-    if (drain->atf_writer) {
-        (void)atf_v4_writer_flush(drain->atf_writer);
-        (void)atf_v4_writer_finalize(drain->atf_writer);
+    // Stop session if active
+    if (drain->session_active) {
+        (void)drain_thread_stop_session(drain);
     }
 
     return rc;
@@ -1193,23 +1274,81 @@ int drain_thread_update_config(DrainThread* drain, const DrainConfig* config) {
     return 0;
 }
 
-void drain_thread_set_atf_writer(DrainThread* drain, AtfV4Writer* writer) {
-    if (!drain) {
-        return;
+int drain_thread_start_session(DrainThread* drain, const char* session_dir) {
+    if (!drain || !session_dir) {
+        return -EINVAL;
     }
+
     pthread_mutex_lock(&drain->lifecycle_lock);
-    drain->atf_writer = writer;
+
+    if (drain->session_active) {
+        pthread_mutex_unlock(&drain->lifecycle_lock);
+        return -EALREADY;
+    }
+
+    strncpy(drain->session_dir, session_dir, sizeof(drain->session_dir) - 1);
+    drain->session_dir[sizeof(drain->session_dir) - 1] = '\0';
+    drain->session_active = true;
+
     pthread_mutex_unlock(&drain->lifecycle_lock);
+    return 0;
 }
 
-AtfV4Writer* drain_thread_get_atf_writer(DrainThread* drain) {
+int drain_thread_stop_session(DrainThread* drain) {
     if (!drain) {
-        return NULL;
+        return -EINVAL;
     }
+
     pthread_mutex_lock(&drain->lifecycle_lock);
-    AtfV4Writer* writer = drain->atf_writer;
+
+    if (!drain->session_active) {
+        pthread_mutex_unlock(&drain->lifecycle_lock);
+        return 0;
+    }
+
+    // Generate manifest.json with thread list and time range
+    char manifest_path[4096];
+    snprintf(manifest_path, sizeof(manifest_path), "%s/manifest.json", drain->session_dir);
+
+    FILE* manifest = fopen(manifest_path, "w");
+    if (manifest) {
+        fprintf(manifest, "{\n");
+        fprintf(manifest, "  \"threads\": [\n");
+
+        bool first = true;
+        for (uint32_t i = 0; i < MAX_THREADS; i++) {
+            if (drain->thread_writers[i]) {
+                if (!first) {
+                    fprintf(manifest, ",\n");
+                }
+                fprintf(manifest, "    {\"id\": %u, \"has_detail\": true}", i);
+                first = false;
+            }
+        }
+
+        fprintf(manifest, "\n  ],\n");
+        fprintf(manifest, "  \"time_start_ns\": 0,\n");
+        fprintf(manifest, "  \"time_end_ns\": 0,\n");
+        fprintf(manifest, "  \"clock_type\": 1,\n");
+        fprintf(manifest, "  \"format_version\": \"2.0\"\n");
+        fprintf(manifest, "}\n");
+        fclose(manifest);
+    }
+
+    // Finalize and close all thread writers
+    for (uint32_t i = 0; i < MAX_THREADS; i++) {
+        if (drain->thread_writers[i]) {
+            atf_thread_writer_finalize(drain->thread_writers[i]);
+            atf_thread_writer_close(drain->thread_writers[i]);
+            drain->thread_writers[i] = NULL;
+        }
+    }
+
+    drain->session_active = false;
+    drain->session_dir[0] = '\0';
+
     pthread_mutex_unlock(&drain->lifecycle_lock);
-    return writer;
+    return 0;
 }
 
 const ada_global_metrics_t* drain_thread_get_thread_metrics_view(const DrainThread* drain) {
@@ -1217,6 +1356,17 @@ const ada_global_metrics_t* drain_thread_get_thread_metrics_view(const DrainThre
         return NULL;
     }
     return &drain->thread_metrics;
+}
+
+AtfThreadWriter* drain_thread_get_atf_writer(DrainThread* drain, uint32_t thread_id) {
+    return get_or_create_thread_writer(drain, thread_id);
+}
+
+void drain_thread_set_atf_writer(DrainThread* drain, uint32_t thread_id, AtfThreadWriter* writer) {
+    if (!drain || thread_id >= MAX_THREADS) {
+        return;
+    }
+    drain->thread_writers[thread_id] = writer;
 }
 
 // --------------------------------------------------------------------------------------

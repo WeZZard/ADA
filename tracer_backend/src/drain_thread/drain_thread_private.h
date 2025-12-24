@@ -158,7 +158,11 @@ struct DrainThread {
     atomic_int          state;
     ThreadRegistry*     registry;
     DrainConfig         config;
-    AtfV4Writer*        atf_writer;
+
+    // ATF V2 session management
+    char                session_dir[4096];
+    bool                session_active;
+    AtfThreadWriter*    thread_writers[MAX_THREADS]; // Per-thread writers
 
     pthread_t           worker;
     bool                thread_started;

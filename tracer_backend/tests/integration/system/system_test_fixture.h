@@ -12,7 +12,7 @@
 #include <sys/types.h>
 
 extern "C" {
-#include <tracer_backend/atf/atf_v4_writer.h>
+#include <tracer_backend/atf/atf_thread_writer.h>
 #include <tracer_backend/utils/thread_registry.h>
 }
 
@@ -36,7 +36,7 @@ struct test_fixture_t {
     std::unique_ptr<uint8_t[]> registry_arena;
     size_t registry_bytes{0};
     ThreadRegistry* registry{nullptr};
-    AtfV4Writer writer{};
+    AtfThreadWriter writer{};
     bool writer_initialized{false};
     std::string output_root;
     std::string session_dir;
@@ -65,7 +65,7 @@ bool test_fixture_attach_to_pid(test_fixture_t* fixture, pid_t pid,
 void test_fixture_shutdown(test_fixture_t* fixture);
 
 ThreadRegistry* test_fixture_registry(test_fixture_t* fixture);
-AtfV4Writer* test_fixture_writer(test_fixture_t* fixture);
+AtfThreadWriter* test_fixture_writer(test_fixture_t* fixture);
 std::string test_fixture_events_path(const test_fixture_t* fixture);
 size_t test_fixture_registry_bytes(const test_fixture_t* fixture);
 pid_t test_fixture_pid(const test_fixture_t* fixture);
