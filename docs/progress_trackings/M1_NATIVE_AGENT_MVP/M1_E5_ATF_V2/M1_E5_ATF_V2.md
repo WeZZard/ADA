@@ -19,8 +19,9 @@ Replace protobuf-based ATF V4 with raw binary ATF V2 format to close the M1 MVP 
 
 ## Iterations
 
-- **M1_E5_I1**: ATF V2 Writer (C/C++ in tracer_backend)
-- **M1_E5_I2**: ATF V2 Reader (Rust/Python in query_engine)
+- **M1_E5_I1**: ATF V2 Writer (C/C++ in tracer_backend) ✅
+- **M1_E5_I2**: ATF V2 Reader (Rust/Python in query_engine) ✅
+- **M1_E5_I3**: ATF V2 Integration & Cleanup (Drain thread + Protobuf removal)
 
 ## Key Design Decisions
 
