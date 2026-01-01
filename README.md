@@ -96,3 +96,10 @@ This project follows a strict TDD workflow with mandatory quality gates. All con
 ## Support
 
 For issues or questions, please refer to the documentation or create an issue in the repository.
+## Quality Metrics
+
+![Quality Gate](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/agentic-infra/ADA/main/.github/badges/integration-score.json)
+![Rust Coverage](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/agentic-infra/ADA/main/.github/badges/rust-coverage.json)
+![C/C++ Coverage](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/agentic-infra/ADA/main/.github/badges/cpp-coverage.json)
+![Build Status](https://github.com/agentic-infra/ADA/workflows/Quality%20Gate%20CI/badge.svg)
+
