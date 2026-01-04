@@ -95,6 +95,11 @@ int drain_thread_update_config(DrainThread* drain, const DrainConfig* config);
 int drain_thread_start_session(DrainThread* drain, const char* session_dir);
 int drain_thread_stop_session(DrainThread* drain);
 
+// Symbol table persistence for manifest (Phase 1)
+// Set the JSON string containing modules and symbols to be included in manifest.
+// The drain thread takes ownership of a copy of the string.
+void drain_thread_set_symbol_table(DrainThread* drain, const char* json);
+
 // ATF V2 writer accessors
 AtfThreadWriter* drain_thread_get_atf_writer(DrainThread* drain, uint32_t thread_id);
 void drain_thread_set_atf_writer(DrainThread* drain, uint32_t thread_id, AtfThreadWriter* writer);

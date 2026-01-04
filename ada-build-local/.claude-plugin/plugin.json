@@ -1,0 +1,13 @@
+{
+  "name": "ada-build-local",
+  "version": "0.1.0",
+  "description": "ADA Build, Trace, and Analysis Plugin for Claude Code",
+  "author": "ADA Team",
+  "skills": [
+    {
+      "name": "trace",
+      "description": "Build, trace, and analyze application performance. Use when profiling apps, finding slow functions, or debugging performance issues.",
+      "file": "skills/trace/SKILL.md"
+    }
+  ]
+}

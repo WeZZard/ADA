@@ -1,0 +1,45 @@
+[package]
+name = "ada-cli"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "ADA Command Line Interface - trace, analyze, and query application performance"
+
+[[bin]]
+name = "ada"
+path = "src/main.rs"
+
+[dependencies]
+# CLI parsing
+clap = { version = "4.4", features = ["derive", "env"] }
+
+# Error handling
+anyhow.workspace = true
+thiserror.workspace = true
+
+# Serialization
+serde.workspace = true
+serde_json.workspace = true
+
+# FFI
+libc.workspace = true
+
+# Async runtime (for future query features)
+tokio = { workspace = true, optional = true }
+
+# Tracing
+tracing.workspace = true
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+
+# Utilities
+which = "6.0"
+
+[build-dependencies]
+# For linking to symbol_resolver C library
+cc = "1.0"
+
+[features]
+default = []
+async-query = ["tokio"]

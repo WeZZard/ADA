@@ -21,6 +21,7 @@ add_library(agent_utils STATIC
     dso_management.cpp
     hook_registry.cpp
     comprehensive_hooks.cpp
+    module_uuid.cpp
 )
 
 target_include_directories(agent_utils

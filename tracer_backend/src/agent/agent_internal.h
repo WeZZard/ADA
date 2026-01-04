@@ -19,6 +19,9 @@ extern "C" {
 #include <tracer_backend/utils/agent_mode.h>
 }
 
+// Include HookRegistry for symbol table persistence
+#include <tracer_backend/agent/hook_registry.h>
+
 // Forward declarations for C++ classes
 namespace ada {
 namespace internal {
@@ -174,6 +177,12 @@ public:
     // Agent mode state machine tick
     void update_registry_mode(uint64_t now_ns, uint64_t hb_timeout_ns);
 
+    // Symbol table persistence: export hook registry as JSON for manifest
+    std::string export_hook_registry_json() const { return hook_registry_.export_to_json(); }
+
+    // Access hook registry for metadata capture during hook installation
+    ada::agent::HookRegistry& hook_registry() { return hook_registry_; }
+
 private:
     // Shared memory segments
     SharedMemoryRef shm_control_;
@@ -210,7 +219,10 @@ private:
 
     // Agent mode state machine
     AgentModeState agent_mode_state_;
-    
+
+    // Hook registry for symbol table persistence (Phase 1)
+    ada::agent::HookRegistry hook_registry_;
+
     // Helper methods
     bool open_shared_memory();
     bool attach_ring_buffers();

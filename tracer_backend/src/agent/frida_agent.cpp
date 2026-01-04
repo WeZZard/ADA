@@ -43,6 +43,7 @@ extern "C" {
 #include <tracer_backend/agent/hook_registry.h>
 #include <tracer_backend/agent/comprehensive_hooks.h>
 #include <tracer_backend/agent/dso_management.h>
+#include <tracer_backend/agent/module_uuid.h>
 
 // #define ADA_MINIMAL_HOOKS 1  // Disabled to enable full event capture
 
@@ -589,9 +590,8 @@ void AgentContext::install_hooks() {
     g_is_installing_hooks.store(true);
     LOG_HOOK_INSTALL("[Agent] Beginning comprehensive hook installation...\n");
 
-    // Registry assigns per-module stable IDs
-    LOG_HOOK_INSTALL("[Agent] Creating hook registry...\n");
-    ada::agent::HookRegistry registry;
+    // Registry assigns per-module stable IDs (using member hook_registry_)
+    LOG_HOOK_INSTALL("[Agent] Using hook registry for symbol table persistence...\n");
 
     // Enumerate main module first
     LOG_HOOK_INSTALL("[Agent] Getting main module...\n");
@@ -599,13 +599,23 @@ void AgentContext::install_hooks() {
     std::vector<ExportEntry> main_exports_entries;
     if (main_mod) {
         gum_module_enumerate_exports(main_mod, collect_exports_cb, &main_exports_entries);
+
+        // Capture module metadata for symbol resolution (Phase 1 - symbol table persistence)
+        const GumMemoryRange* range = gum_module_get_range(main_mod);
+        if (range) {
+            uint8_t uuid[16] = {0};
+            ada::agent::extract_module_uuid(static_cast<uintptr_t>(range->base_address), uuid);
+            hook_registry_.set_module_metadata("<main>", range->base_address, range->size, uuid);
+            LOG_HOOK_INSTALL("[Agent] Captured main module metadata: base=0x%llx, size=%zu\n",
+                    (unsigned long long)range->base_address, (size_t)range->size);
+        }
     }
     std::vector<std::string> main_export_names;
     main_export_names.reserve(main_exports_entries.size());
     for (auto& e : main_exports_entries) main_export_names.push_back(e.name);
 
     // Plan main hooks
-    auto main_plan = ada::agent::plan_module_hooks("<main>", main_export_names, xs, registry);
+    auto main_plan = ada::agent::plan_module_hooks("<main>", main_export_names, xs, hook_registry_);
     // Build precise address lookup for main module using symbol/export resolution
     std::unordered_map<std::string, GumAddress> main_addr;
     for (auto& e : main_exports_entries) {
@@ -684,6 +694,17 @@ void AgentContext::install_hooks() {
             std::vector<ExportEntry> exps;
             gum_module_enumerate_exports(mod, collect_exports_cb, &exps);
             if (exps.empty()) continue;
+
+            // Capture DSO module metadata for symbol resolution
+            const GumMemoryRange* dso_range = gum_module_get_range(mod);
+            if (dso_range) {
+                uint8_t dso_uuid[16] = {0};
+                ada::agent::extract_module_uuid(static_cast<uintptr_t>(dso_range->base_address), dso_uuid);
+                hook_registry_.set_module_metadata(path, dso_range->base_address, dso_range->size, dso_uuid);
+                LOG_HOOK_INSTALL("[Agent] Captured DSO module metadata: %s base=0x%llx, size=%zu\n",
+                        path, (unsigned long long)dso_range->base_address, (size_t)dso_range->size);
+            }
+
             std::vector<std::string> names; names.reserve(exps.size());
             std::unordered_map<std::string, GumAddress> addr;
             for (auto& e : exps) {
@@ -694,7 +715,7 @@ void AgentContext::install_hooks() {
                 }
                 addr.emplace(e.name, a);
             }
-            auto plan = ada::agent::plan_module_hooks(path, names, xs, registry);
+            auto plan = ada::agent::plan_module_hooks(path, names, xs, hook_registry_);
             [[maybe_unused]] int32_t plan_index = 0;
             for (const auto& pe : plan) {
                 LOG_HOOK_INSTALL("[Agent] (%d/%zu) Will attach DSO hook to %s\n", plan_index, plan.size(), pe.symbol.c_str());
@@ -750,7 +771,24 @@ void AgentContext::install_hooks() {
     LOG_HOOK_SUMMARY("[Agent] Sending hook summary...\n");
     send_hook_summary();
     LOG_HOOK_SUMMARY("[Agent] Hook summary sent.\n");
-    
+
+    // Write symbol table to file for manifest generation (Phase 1: symbol resolution)
+    {
+        char symbols_path[256];
+        snprintf(symbols_path, sizeof(symbols_path), "/tmp/ada_symbols_%u_%08x.json",
+                 host_pid_, session_id_);
+        FILE* symbols_file = fopen(symbols_path, "w");
+        if (symbols_file) {
+            std::string json = hook_registry_.export_to_json();
+            fwrite(json.data(), 1, json.size(), symbols_file);
+            fclose(symbols_file);
+            LOG_HOOK_INSTALL("[Agent] Wrote symbol table to %s (%zu bytes)\n",
+                    symbols_path, json.size());
+        } else {
+            LOG_HOOK_INSTALL("[Agent] Failed to write symbol table to %s\n", symbols_path);
+        }
+    }
+
     LOG_HOOK_INSTALL("[Agent] Initialization complete: %u/%u hooks installed\n",
             num_hooks_successful_, num_hooks_attempted_);
 

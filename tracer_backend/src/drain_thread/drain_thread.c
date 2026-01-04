@@ -1148,6 +1148,7 @@ DrainThread* drain_thread_create(ThreadRegistry* registry, const DrainConfig* co
     drain->session_dir[0] = '\0';
     drain->session_active = false;
     memset(drain->thread_writers, 0, sizeof(drain->thread_writers));
+    drain->symbol_table_json = NULL;  // Phase 1: symbol resolution
     drain->thread_started = false;
 
     drain_metrics_atomic_reset(&drain->metrics);
@@ -1299,6 +1300,12 @@ void drain_thread_destroy(DrainThread* drain) {
     }
     drain->iterator_enabled = false;
 
+    // Clean up symbol table JSON (Phase 1: symbol resolution)
+    if (drain->symbol_table_json) {
+        free(drain->symbol_table_json);
+        drain->symbol_table_json = NULL;
+    }
+
     pthread_mutex_destroy(&drain->lifecycle_lock);
     free(drain);
 }
@@ -1386,7 +1393,15 @@ int drain_thread_stop_session(DrainThread* drain) {
         fprintf(manifest, "  \"time_start_ns\": 0,\n");
         fprintf(manifest, "  \"time_end_ns\": 0,\n");
         fprintf(manifest, "  \"clock_type\": 1,\n");
-        fprintf(manifest, "  \"format_version\": \"2.0\"\n");
+
+        // Include symbol table if available (Phase 1: symbol resolution)
+        if (drain->symbol_table_json && drain->symbol_table_json[0] != '\0') {
+            // symbol_table_json contains: "modules": [...], "symbols": [...]
+            fprintf(manifest, "  %s,\n", drain->symbol_table_json);
+            fprintf(manifest, "  \"format_version\": \"2.1\"\n");
+        } else {
+            fprintf(manifest, "  \"format_version\": \"2.0\"\n");
+        }
         fprintf(manifest, "}\n");
         fclose(manifest);
     }
@@ -1405,6 +1420,31 @@ int drain_thread_stop_session(DrainThread* drain) {
 
     pthread_mutex_unlock(&drain->lifecycle_lock);
     return 0;
+}
+
+void drain_thread_set_symbol_table(DrainThread* drain, const char* json) {
+    if (!drain) {
+        return;
+    }
+
+    pthread_mutex_lock(&drain->lifecycle_lock);
+
+    // Free existing symbol table if any
+    if (drain->symbol_table_json) {
+        free(drain->symbol_table_json);
+        drain->symbol_table_json = NULL;
+    }
+
+    // Copy new symbol table JSON
+    if (json && json[0] != '\0') {
+        size_t len = strlen(json);
+        drain->symbol_table_json = (char*)malloc(len + 1);
+        if (drain->symbol_table_json) {
+            memcpy(drain->symbol_table_json, json, len + 1);
+        }
+    }
+
+    pthread_mutex_unlock(&drain->lifecycle_lock);
 }
 
 const ada_global_metrics_t* drain_thread_get_thread_metrics_view(const DrainThread* drain) {

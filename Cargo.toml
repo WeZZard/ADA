@@ -5,6 +5,7 @@ members = [
     "query_engine",
     "utils/coverage_helper",
     "tracer",
+    "ada-cli",
     # Future components will be added here:
     # "mcp_server",
 ]

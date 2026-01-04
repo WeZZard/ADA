@@ -319,6 +319,38 @@ void FridaController::stop_atf_session() {
         return;  // Nothing to stop
     }
 
+    // Read symbol table from agent temp file (Phase 1: symbol resolution)
+    {
+        char symbols_path[256];
+        uint32_t host_pid = shared_memory_get_pid();
+        uint32_t session_id = shared_memory_get_session_id();
+        snprintf(symbols_path, sizeof(symbols_path), "/tmp/ada_symbols_%u_%08x.json",
+                 host_pid, session_id);
+
+        FILE* symbols_file = fopen(symbols_path, "r");
+        if (symbols_file) {
+            // Get file size
+            fseek(symbols_file, 0, SEEK_END);
+            long file_size = ftell(symbols_file);
+            fseek(symbols_file, 0, SEEK_SET);
+
+            if (file_size > 0 && file_size < 10 * 1024 * 1024) {  // Max 10MB
+                char* buffer = (char*)malloc(static_cast<size_t>(file_size) + 1);
+                if (buffer) {
+                    size_t read_size = fread(buffer, 1, static_cast<size_t>(file_size), symbols_file);
+                    buffer[read_size] = '\0';
+                    drain_thread_set_symbol_table(drain_, buffer);
+                    free(buffer);
+                    g_debug("[Controller] Loaded symbol table: %zu bytes\n", read_size);
+                }
+            }
+            fclose(symbols_file);
+
+            // Clean up temp file
+            unlink(symbols_path);
+        }
+    }
+
     drain_thread_stop_session(drain_);
     g_print("[Controller] ATF session finalized: %s\n", session_dir_.c_str());
     session_dir_.clear();

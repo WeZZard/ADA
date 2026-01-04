@@ -164,6 +164,9 @@ struct DrainThread {
     bool                session_active;
     AtfThreadWriter*    thread_writers[MAX_THREADS]; // Per-thread writers
 
+    // Symbol table JSON for manifest (Phase 1 - symbol resolution)
+    char*               symbol_table_json;  // Heap-allocated, freed on destroy
+
     pthread_t           worker;
     bool                thread_started;
     pthread_mutex_t     lifecycle_lock;
