@@ -1,0 +1,9 @@
+{
+  "version": 1,
+  "paths": [
+    {"name": "00-status.md", "description": "Iteration status and goal - contains status in frontmatter", "when_to_explore": "Read first to check iteration status and understand goal"},
+    {"name": "tech-design.md", "description": "Technical design decisions and architecture for this iteration", "when_to_explore": "Read when you need to understand implementation approach"},
+    {"name": "tasks.md", "description": "Implementation task breakdown", "when_to_explore": "Read when you need to see specific tasks to implement"},
+    {"name": "test-plan.md", "description": "Test plan for verifying iteration completion", "when_to_explore": "Read when you need verification criteria"}
+  ]
+}

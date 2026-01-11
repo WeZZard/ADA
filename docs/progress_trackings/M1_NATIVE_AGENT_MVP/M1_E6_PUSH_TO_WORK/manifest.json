@@ -1,0 +1,7 @@
+{
+  "version": 1,
+  "paths": [
+    {"name": "epic.md", "description": "Epic definition: Address critical issues blocking production readiness.", "when_to_explore": "Read when you need epic-level context or iteration overview"},
+    {"name": "M1_E6_I1_ASYNC_SCRIPT_LOAD_TIMEOUT/", "description": "Iteration 1 (legacy format)", "when_to_explore": "Navigate here when implementing Iteration 1"}
+  ]
+}

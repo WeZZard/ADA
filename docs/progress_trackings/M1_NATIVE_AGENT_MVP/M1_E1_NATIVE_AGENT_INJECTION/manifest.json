@@ -1,0 +1,16 @@
+{
+  "version": 1,
+  "paths": [
+    {"name": "epic.md", "description": "Epic definition: Establish the core infrastructure for native agent injection, including shared memory setup, ring buffer management, and thread registration.", "when_to_explore": "Read when you need epic-level context or iteration overview"},
+    {"name": "M1_E1_I1_SHARED_MEMORY_SETUP/", "description": "Iteration 1 (legacy format)", "when_to_explore": "Navigate here when implementing Iteration 1"},
+    {"name": "M1_E1_I10_BROAD_COVERAGE_HOOKS/", "description": "Iteration 10 (legacy format)", "when_to_explore": "Navigate here when implementing Iteration 10"},
+    {"name": "M1_E1_I2_THREAD_REGISTRY/", "description": "Iteration 2 (legacy format)", "when_to_explore": "Navigate here when implementing Iteration 2"},
+    {"name": "M1_E1_I3_RING_BUFFER_CORE/", "description": "Iteration 3 (legacy format)", "when_to_explore": "Navigate here when implementing Iteration 3"},
+    {"name": "M1_E1_I4_AGENT_LOADER/", "description": "Iteration 4 (legacy format)", "when_to_explore": "Navigate here when implementing Iteration 4"},
+    {"name": "M1_E1_I5_THREAD_REGISTRATION/", "description": "Iteration 5 (legacy format)", "when_to_explore": "Navigate here when implementing Iteration 5"},
+    {"name": "M1_E1_I6_OFFSET_ONLY_SHM/", "description": "Iteration 6 (legacy format)", "when_to_explore": "Navigate here when implementing Iteration 6"},
+    {"name": "M1_E1_I7_REGISTRY_READINESS_AND_FALLBACK/", "description": "Iteration 7 (legacy format)", "when_to_explore": "Navigate here when implementing Iteration 7"},
+    {"name": "M1_E1_I8_MATERIALIZATION_AND_SHM_INDEX/", "description": "Iteration 8 (legacy format)", "when_to_explore": "Navigate here when implementing Iteration 8"},
+    {"name": "M1_E1_I9_RING_POOL_SWAP/", "description": "Iteration 9 (legacy format)", "when_to_explore": "Navigate here when implementing Iteration 9"}
+  ]
+}

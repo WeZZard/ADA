@@ -1,0 +1,13 @@
+{
+  "version": 1,
+  "paths": [
+    {"name": "epic.md", "description": "Epic definition: Implement the event drain pipeline from shared memory to ATF files, including CLI interface and signal handling.", "when_to_explore": "Read when you need epic-level context or iteration overview"},
+    {"name": "M1_E2_I1_DRAIN_THREAD/", "description": "Iteration 1 (legacy format)", "when_to_explore": "Navigate here when implementing Iteration 1"},
+    {"name": "M1_E2_I2_PER_THREAD_DRAIN/", "description": "Iteration 2 (legacy format)", "when_to_explore": "Navigate here when implementing Iteration 2"},
+    {"name": "M1_E2_I3_ATF_V4_WRITER/", "description": "Iteration 3 (legacy format)", "when_to_explore": "Navigate here when implementing Iteration 3"},
+    {"name": "M1_E2_I4_CLI_PARSER/", "description": "Iteration 4 (legacy format)", "when_to_explore": "Navigate here when implementing Iteration 4"},
+    {"name": "M1_E2_I5_DURATION_TIMER/", "description": "Iteration 5 (legacy format)", "when_to_explore": "Navigate here when implementing Iteration 5"},
+    {"name": "M1_E2_I6_SIGNAL_SHUTDOWN/", "description": "Iteration 6 (legacy format)", "when_to_explore": "Navigate here when implementing Iteration 6"},
+    {"name": "M1_E2_I7_SELECTIVE_PERSISTENCE/", "description": "Iteration 7 (legacy format)", "when_to_explore": "Navigate here when implementing Iteration 7"}
+  ]
+}

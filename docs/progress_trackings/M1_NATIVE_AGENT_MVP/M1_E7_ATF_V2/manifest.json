@@ -1,0 +1,9 @@
+{
+  "version": 1,
+  "paths": [
+    {"name": "epic.md", "description": "Epic definition: Implement ATF version 2 format with bidirectional linking and improved structure.", "when_to_explore": "Read when you need epic-level context or iteration overview"},
+    {"name": "M1_E7_I1_ATF_V2_WRITER/", "description": "Iteration 1 (legacy format)", "when_to_explore": "Navigate here when implementing Iteration 1"},
+    {"name": "M1_E7_I2_ATF_V2_READER/", "description": "Iteration 2 (legacy format)", "when_to_explore": "Navigate here when implementing Iteration 2"},
+    {"name": "M1_E7_I3_ATF_V2_INTEGRATION/", "description": "Iteration 3 (legacy format)", "when_to_explore": "Navigate here when implementing Iteration 3"}
+  ]
+}

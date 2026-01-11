@@ -1,0 +1,10 @@
+{
+  "version": 1,
+  "paths": [
+    {"name": "epic.md", "description": "Epic definition: Add robustness features including backpressure handling, metrics collection, and integration validation.", "when_to_explore": "Read when you need epic-level context or iteration overview"},
+    {"name": "M1_E3_I1_BACKPRESSURE/", "description": "Iteration 1 (legacy format)", "when_to_explore": "Navigate here when implementing Iteration 1"},
+    {"name": "M1_E3_I2_METRICS_COLLECTION/", "description": "Iteration 2 (legacy format)", "when_to_explore": "Navigate here when implementing Iteration 2"},
+    {"name": "M1_E3_I3_METRICS_REPORTING/", "description": "Iteration 3 (legacy format)", "when_to_explore": "Navigate here when implementing Iteration 3"},
+    {"name": "M1_E3_I4_INTEGRATION_VALIDATION/", "description": "Iteration 4 (legacy format)", "when_to_explore": "Navigate here when implementing Iteration 4"}
+  ]
+}

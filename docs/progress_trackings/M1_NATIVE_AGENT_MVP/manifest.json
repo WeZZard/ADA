@@ -1,0 +1,13 @@
+{
+  "version": 1,
+  "paths": [
+    {"name": "milestone.md", "description": "Milestone definition: Deliver a minimal viable product for native agent tracing on macOS, including process injection, function hooking, ring buffer management, event collection, and ATF file generation.", "when_to_explore": "Read when you need milestone-level context, completion status, or epic overview"},
+    {"name": "M1_E1_NATIVE_AGENT_INJECTION/", "description": "Epic 1 - Establish the core infrastructure for native agent injection, including shared memory setup, ring buffer management, and thread registration.", "when_to_explore": "Navigate here when working on Epic 1 scope"},
+    {"name": "M1_E2_INDEX_PIPELINE/", "description": "Epic 2 - Implement the event drain pipeline from shared memory to ATF files, including CLI interface and signal handling.", "when_to_explore": "Navigate here when working on Epic 2 scope"},
+    {"name": "M1_E3_HARDENING/", "description": "Epic 3 - Add robustness features including backpressure handling, metrics collection, and integration validation.", "when_to_explore": "Navigate here when working on Epic 3 scope"},
+    {"name": "M1_E4_QUERY_ENGINE/", "description": "Epic 4 - Build the query layer for reading and analyzing ATF trace files via JSON-RPC API.", "when_to_explore": "Navigate here when working on Epic 4 scope"},
+    {"name": "M1_E5_DOCUMENTATION/", "description": "Epic 5 - Create comprehensive documentation for users and developers.", "when_to_explore": "Navigate here when working on Epic 5 scope"},
+    {"name": "M1_E6_PUSH_TO_WORK/", "description": "Epic 6 - Address critical issues blocking production readiness.", "when_to_explore": "Navigate here when working on Epic 6 scope"},
+    {"name": "M1_E7_ATF_V2/", "description": "Epic 7 - Implement ATF version 2 format with bidirectional linking and improved structure.", "when_to_explore": "Navigate here when working on Epic 7 scope"}
+  ]
+}
