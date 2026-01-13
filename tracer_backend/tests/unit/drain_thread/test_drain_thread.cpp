@@ -15,6 +15,7 @@ extern "C" {
 #include <tracer_backend/ada/thread.h>
 #include <tracer_backend/atf/atf_thread_writer.h>
 #include <tracer_backend/drain_thread/drain_thread.h>
+#include <tracer_backend/utils/control_block_ipc.h>
 #include <tracer_backend/utils/thread_registry.h>
 
 void drain_thread_test_set_state(DrainThread *drain, DrainState state);
@@ -28,6 +29,7 @@ uint32_t drain_thread_test_drain_lane(DrainThread *drain, uint32_t slot_index,
                                       bool final_pass, bool *out_hit_limit);
 bool drain_thread_test_cycle(DrainThread *drain, bool final_pass);
 void drain_thread_test_return_ring(Lane *lane, uint32_t ring_idx);
+void drain_thread_test_update_control_block(DrainThread *drain);
 void *drain_thread_test_worker_entry(void *arg);
 }
 
@@ -770,6 +772,34 @@ TEST(DrainThreadUnit,
   drain_config_default(&config);
 
   EXPECT_EQ(drain_thread_update_config(nullptr, &config), -EINVAL);
+}
+
+TEST(DrainThreadUnit, drain_thread__set_control_block_null__then_noop) {
+  ControlBlock cb{};
+  drain_thread_set_control_block(nullptr, &cb);
+}
+
+TEST(DrainThreadUnit,
+     drain_thread__control_block_registry_not_ready__then_heartbeat_updates) {
+  RegistryHarness harness(1);
+  DrainThread *drain = create_drain(harness, nullptr);
+  ASSERT_NE(drain, nullptr);
+
+  ControlBlock cb{};
+  cb_set_registry_ready(&cb, 0u);
+  cb_set_registry_mode(&cb, REGISTRY_MODE_DUAL_WRITE);
+
+  drain_thread_set_control_block(drain, &cb);
+  uint64_t before = cb_get_heartbeat_ns(&cb);
+
+  drain_thread_test_update_control_block(drain);
+
+  uint64_t after = cb_get_heartbeat_ns(&cb);
+  EXPECT_GE(after, before);
+  EXPECT_EQ(cb_get_registry_mode(&cb),
+            static_cast<uint32_t>(REGISTRY_MODE_DUAL_WRITE));
+
+  drain_thread_destroy(drain);
 }
 
 TEST(DrainThreadUnit, drain_thread__config_default_null__then_noop) {

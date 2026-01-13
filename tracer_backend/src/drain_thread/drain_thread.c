@@ -9,6 +9,8 @@
 #include <unistd.h>
 
 #include <tracer_backend/atf/atf_thread_writer.h>
+#include <tracer_backend/utils/control_block_ipc.h>
+#include <tracer_backend/utils/agent_mode.h>
 
 #if defined(__has_attribute)
 #if __has_attribute(weak)
@@ -146,6 +148,39 @@ static inline uint64_t monotonic_now_ns(void) {
     struct timespec ts;
     clock_gettime(CLOCK_MONOTONIC, &ts);
     return ((uint64_t)ts.tv_sec * 1000000000ull) + (uint64_t)ts.tv_nsec;
+}
+
+static const uint64_t kRegistryTickIntervalNs = 100000000ull; // 100ms
+static const uint32_t kRegistryWarmupTicks = 5;
+
+static void drain_update_control_block(DrainThread* drain) {
+    if (!drain || !drain->control_block) {
+        return;
+    }
+
+    uint64_t now_ns = monotonic_now_ns();
+    cb_set_heartbeat_ns(drain->control_block, now_ns);
+
+    if (cb_get_registry_ready(drain->control_block) == 0) {
+        return;
+    }
+
+    if (now_ns - drain->last_registry_tick_ns < kRegistryTickIntervalNs) {
+        return;
+    }
+
+    drain->last_registry_tick_ns = now_ns;
+    if (drain->warmup_ticks < UINT32_MAX) {
+        drain->warmup_ticks++;
+    }
+
+    if (drain->warmup_ticks >= kRegistryWarmupTicks) {
+        uint32_t mode = cb_get_registry_mode(drain->control_block);
+        if (mode == REGISTRY_MODE_DUAL_WRITE) {
+            cb_set_registry_mode(drain->control_block, REGISTRY_MODE_PER_THREAD_ONLY);
+            cb_inc_mode_transitions(drain->control_block);
+        }
+    }
 }
 
 static void drain_metrics_atomic_reset(DrainMetricsAtomic* m) {
@@ -1039,6 +1074,7 @@ static void* drain_worker_thread(void* arg) {
 #endif
 
     while (atomic_load_explicit(&drain->state, memory_order_acquire) == DRAIN_STATE_RUNNING) {
+        drain_update_control_block(drain);
         bool work = false;
 
         // Use per-thread drain iteration if available
@@ -1145,6 +1181,9 @@ DrainThread* drain_thread_create(ThreadRegistry* registry, const DrainConfig* co
 
     drain->registry = registry;
     drain->config = local_config;
+    drain->control_block = NULL;
+    drain->last_registry_tick_ns = 0;
+    drain->warmup_ticks = 0;
     drain->session_dir[0] = '\0';
     drain->session_active = false;
     memset(drain->thread_writers, 0, sizeof(drain->thread_writers));
@@ -1193,6 +1232,20 @@ DrainThread* drain_thread_create(ThreadRegistry* registry, const DrainConfig* co
     }
 
     return drain;
+}
+
+void drain_thread_set_control_block(DrainThread* drain, ControlBlock* control_block) {
+    if (!drain) {
+        return;
+    }
+
+    drain->control_block = control_block;
+    if (control_block) {
+        uint64_t now_ns = monotonic_now_ns();
+        drain->last_registry_tick_ns = now_ns;
+        drain->warmup_ticks = 0;
+        cb_set_heartbeat_ns(control_block, now_ns);
+    }
 }
 
 int drain_thread_start(DrainThread* drain) {
@@ -1484,6 +1537,10 @@ bool drain_thread_test_cycle(DrainThread* drain, bool final_pass) {
 
 void drain_thread_test_return_ring(Lane* lane, uint32_t ring_idx) {
     return_ring_to_producer(lane, ring_idx);
+}
+
+void drain_thread_test_update_control_block(DrainThread* drain) {
+    drain_update_control_block(drain);
 }
 
 void drain_thread_test_set_state(DrainThread* drain, DrainState state) {

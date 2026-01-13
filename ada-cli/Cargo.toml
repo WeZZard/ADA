@@ -39,6 +39,7 @@ which = "6.0"
 [build-dependencies]
 # For linking to symbol_resolver C library
 cc = "1.0"
+tracer_backend = { path = "../tracer_backend" }
 
 [features]
 default = []

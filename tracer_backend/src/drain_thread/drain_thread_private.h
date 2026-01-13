@@ -158,6 +158,9 @@ struct DrainThread {
     atomic_int          state;
     ThreadRegistry*     registry;
     DrainConfig         config;
+    ControlBlock*       control_block;
+    uint64_t            last_registry_tick_ns;
+    uint32_t            warmup_ticks;
 
     // ATF V2 session management
     char                session_dir[4096];

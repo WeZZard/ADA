@@ -73,6 +73,9 @@ void drain_config_default(DrainConfig* config);
 // Create a drain thread bound to a thread registry
 DrainThread* drain_thread_create(ThreadRegistry* registry, const DrainConfig* config);
 
+// Provide the control block for heartbeat/mode coordination (optional).
+void drain_thread_set_control_block(DrainThread* drain, ControlBlock* control_block);
+
 // Start the worker thread - transitions INITIALIZED -> RUNNING
 int drain_thread_start(DrainThread* drain);
 

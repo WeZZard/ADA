@@ -48,7 +48,7 @@ TEST_F(SpawnMethodTest, controller__spawn_attach_resume__then_process_runs) {
     controller = frida_controller_create("/tmp/ada_test");
     ASSERT_NE(controller, nullptr);
     
-    char* argv[] = {(char*)"test_cli", (char*)"--test", nullptr};
+    char* argv[] = {(char*)"test_cli", (char*)"--wait", nullptr};
     uint32_t pid;
     
     int result = frida_controller_spawn_suspended(controller, 
@@ -115,7 +115,7 @@ TEST_F(SpawnMethodTest, controller__state_tracking__then_transitions_correctly) 
     printf("  Initial state: INITIALIZED\n");
     
     // Spawn a test process
-    char* argv[] = {(char*)"test_cli", nullptr};
+    char* argv[] = {(char*)"test_cli", (char*)"--wait", nullptr};
     uint32_t pid;
     
     int result = frida_controller_spawn_suspended(controller,

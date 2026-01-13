@@ -25,6 +25,21 @@ extern "C" {
 extern char **environ;
 #endif
 
+namespace {
+using AttachSyncFn =
+    FridaSession* (*)(FridaDevice*, guint, FridaSessionOptions*, GCancellable*, GError**);
+
+AttachSyncFn attach_sync_fn = frida_device_attach_sync;
+}
+
+extern "C" void frida_controller_test_set_attach_sync(AttachSyncFn fn) {
+    attach_sync_fn = fn ? fn : frida_device_attach_sync;
+}
+
+extern "C" void frida_controller_test_reset_attach_sync(void) {
+    attach_sync_fn = frida_device_attach_sync;
+}
+
 namespace ada {
 namespace internal {
 
@@ -223,6 +238,7 @@ FridaController::FridaController(const std::string& output_dir)
         cleanup_frida_objects();
         throw std::runtime_error("Failed to create drain thread");
     }
+    drain_thread_set_control_block(drain_, control_block_);
 
     if (drain_thread_start(drain_) != 0) {
         drain_thread_destroy(drain_);
@@ -668,16 +684,43 @@ int FridaController::spawn_suspended(const char* path, char* const argv[], uint3
 int FridaController::attach(uint32_t pid) {
     state_ = PROCESS_STATE_ATTACHING;
     control_block_->process_state = PROCESS_STATE_ATTACHING;
-    
-    GError* error = nullptr;
-    FridaSessionOptions* options = frida_session_options_new();
-    
-    session_ = frida_device_attach_sync(device_, pid, options, nullptr, &error);
-    g_object_unref(options);
-    
-    if (error) {
-        g_printerr("Failed to attach: %s\n", error->message);
+
+    const int max_attempts = 5;
+    for (int attempt = 1; attempt <= max_attempts; ++attempt) {
+        GError* error = nullptr;
+        FridaSessionOptions* options = frida_session_options_new();
+
+        session_ = attach_sync_fn(device_, pid, options, nullptr, &error);
+        g_object_unref(options);
+
+        if (!error) {
+            break;
+        }
+
+        bool retry = (error->domain == FRIDA_ERROR &&
+                      (error->code == FRIDA_ERROR_TIMED_OUT ||
+                       error->code == FRIDA_ERROR_PROCESS_NOT_FOUND ||
+                       error->code == FRIDA_ERROR_PROCESS_NOT_RESPONDING));
+        g_printerr("Failed to attach (attempt %d/%d): %s\n", attempt, max_attempts, error->message);
         g_error_free(error);
+        session_ = nullptr;
+
+        if (retry && attempt < max_attempts) {
+            const int sleep_ms =
+                (error->code == FRIDA_ERROR_PROCESS_NOT_FOUND ||
+                 error->code == FRIDA_ERROR_PROCESS_NOT_RESPONDING)
+                    ? 500
+                    : 200;
+            std::this_thread::sleep_for(std::chrono::milliseconds(sleep_ms));
+            continue;
+        }
+
+        state_ = PROCESS_STATE_FAILED;
+        control_block_->process_state = PROCESS_STATE_FAILED;
+        return -1;
+    }
+    
+    if (!session_) {
         state_ = PROCESS_STATE_FAILED;
         control_block_->process_state = PROCESS_STATE_FAILED;
         return -1;

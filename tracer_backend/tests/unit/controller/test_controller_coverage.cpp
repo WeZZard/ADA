@@ -15,6 +15,42 @@ extern "C" {
     #include "ada_paths.h"
 }
 
+using AttachSyncFn =
+    FridaSession* (*)(FridaDevice*, guint, FridaSessionOptions*, GCancellable*, GError**);
+
+extern "C" void frida_controller_test_set_attach_sync(AttachSyncFn fn);
+extern "C" void frida_controller_test_reset_attach_sync(void);
+
+namespace {
+int attach_calls = 0;
+
+FridaSession* attach_sync_timeout_stub(FridaDevice* self,
+                                       guint pid,
+                                       FridaSessionOptions* options,
+                                       GCancellable* cancellable,
+                                       GError** error) {
+    (void)self;
+    (void)pid;
+    (void)options;
+    (void)cancellable;
+
+    ++attach_calls;
+    if (error) {
+        *error = g_error_new_literal(FRIDA_ERROR, FRIDA_ERROR_TIMED_OUT, "timed out");
+    }
+    return nullptr;
+}
+
+struct AttachSyncOverride {
+    explicit AttachSyncOverride(AttachSyncFn fn) {
+        frida_controller_test_set_attach_sync(fn);
+    }
+    ~AttachSyncOverride() {
+        frida_controller_test_reset_attach_sync();
+    }
+};
+}
+
 // Test fixture for controller coverage tests
 class ControllerCoverageTest : public ::testing::Test {
 protected:
@@ -120,6 +156,20 @@ TEST_F(ControllerCoverageTest, controller__create_with_output__then_initializes_
     unsetenv("LLVM_PROFILE_FILE");
     unsetenv("RUSTFLAGS");
     unlink(output_file);
+}
+
+TEST_F(ControllerCoverageTest,
+       controller__attach_timeout_retries__then_fails_cleanly) {
+    AttachSyncOverride override(attach_sync_timeout_stub);
+    attach_calls = 0;
+
+    controller = frida_controller_create("/tmp");
+    ASSERT_NE(controller, nullptr);
+
+    int result = frida_controller_attach(controller, 1234);
+    EXPECT_EQ(result, -1);
+    EXPECT_EQ(attach_calls, 5);
+    EXPECT_EQ(frida_controller_get_state(controller), PROCESS_STATE_FAILED);
 }
 
 // Test: controller__registry_disabled__then_no_registry_init

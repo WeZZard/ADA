@@ -4,7 +4,6 @@
 
 use std::env;
 use std::path::PathBuf;
-use std::process::Command;
 
 fn main() {
     let profile = env::var("PROFILE").expect("PROFILE not set");
@@ -26,26 +25,11 @@ fn main() {
         println!("cargo:rustc-link-search=native={}", lib_dir.display());
         println!("cargo:warning=Found symbol_resolver at: {}", lib_path.display());
     } else {
-        // If not found, try to build tracer_backend first
-        println!("cargo:warning=symbol_resolver not found, attempting to build tracer_backend...");
-
-        let status = Command::new("cargo")
-            .arg("build")
-            .arg(if profile == "release" { "--release" } else { "" })
-            .arg("-p")
-            .arg("tracer_backend")
-            .current_dir(&workspace_root)
-            .status();
-
-        if let Ok(s) = status {
-            if s.success() {
-                // Try to find the library again
-                if let Some(lib_path) = find_library(&build_dir, "libsymbol_resolver.a") {
-                    let lib_dir = lib_path.parent().unwrap();
-                    println!("cargo:rustc-link-search=native={}", lib_dir.display());
-                }
-            }
-        }
+        panic!(
+            "libsymbol_resolver.a not found under {}; \
+             build tracer_backend first (ada-cli has a build-dependency on it)",
+            build_dir.display()
+        );
     }
 
     // Link against symbol_resolver

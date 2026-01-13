@@ -174,8 +174,8 @@ TEST_F(IntegrationTest, controller__state_transitions__then_correct_sequence) {
     // Initial state
     ASSERT_EQ(frida_controller_get_state(controller), PROCESS_STATE_INITIALIZED);
     
-    // Spawn process
-    char* argv[] = {(char*)"test_cli", nullptr};
+    // Spawn process; keep it alive briefly to avoid state race on quick exit.
+    char* argv[] = {(char*)"test_cli", (char*)"--wait", nullptr};
     uint32_t pid = 0;
     int result = frida_controller_spawn_suspended(controller,
         ADA_WORKSPACE_ROOT "/target/" ADA_BUILD_PROFILE "/tracer_backend/test/test_cli", argv, &pid);
