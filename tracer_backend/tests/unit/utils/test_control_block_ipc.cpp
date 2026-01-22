@@ -86,7 +86,27 @@ TEST(control_block_ipc__heartbeat_ns__then_reads_set_value, unit) {
     EXPECT_EQ(cb_get_heartbeat_ns(&cb), ns(5000000000ull));
 }
 
-// 6) counters__inc_and_get__then_counters_match
+// 6) heartbeat_ns__monotonic_update__then_clamps_to_max
+TEST(control_block_ipc__heartbeat_ns__monotonic_update__then_clamps_to_max, unit) {
+    ControlBlock cb = {};
+
+    cb_set_heartbeat_ns(&cb, ns(100ull));
+    EXPECT_EQ(cb_get_heartbeat_ns(&cb), ns(100ull));
+
+    // Update forward (should advance).
+    cb_update_heartbeat_ns(&cb, ns(150ull));
+    EXPECT_EQ(cb_get_heartbeat_ns(&cb), ns(150ull));
+
+    // Update backward (should be ignored).
+    cb_update_heartbeat_ns(&cb, ns(120ull));
+    EXPECT_EQ(cb_get_heartbeat_ns(&cb), ns(150ull));
+
+    // Update equal (should be no-op).
+    cb_update_heartbeat_ns(&cb, ns(150ull));
+    EXPECT_EQ(cb_get_heartbeat_ns(&cb), ns(150ull));
+}
+
+// 7) counters__inc_and_get__then_counters_match
 TEST(control_block_ipc__counters__then_update_and_read, unit) {
     ControlBlock cb = {};
 
@@ -108,4 +128,3 @@ TEST(control_block_ipc__counters__then_update_and_read, unit) {
     cb_inc_fallback_events(&cb);
     EXPECT_EQ(cb_get_fallback_events(&cb), 3ull);
 }
-

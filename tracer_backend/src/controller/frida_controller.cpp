@@ -309,7 +309,7 @@ void FridaController::registry_maintenance_loop() {
     while (!maintenance_stop_.load()) {
         if (control_block_) {
             uint64_t now_ns = static_cast<uint64_t>(g_get_monotonic_time()) * 1000;
-            cb_set_heartbeat_ns(control_block_, now_ns);
+            cb_update_heartbeat_ns(control_block_, now_ns);
 
             if (cb_get_registry_ready(control_block_) != 0) {
                 uint32_t mode = cb_get_registry_mode(control_block_);

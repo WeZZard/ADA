@@ -53,6 +53,15 @@ static inline void cb_set_heartbeat_ns(ControlBlock* cb, uint64_t now_ns) {
     __atomic_store_n(&cb->drain_heartbeat_ns, now_ns, __ATOMIC_RELEASE);
 }
 
+static inline void cb_update_heartbeat_ns(ControlBlock* cb, uint64_t now_ns) { // Monotonic update: only move heartbeat forward.
+    uint64_t prev = __atomic_load_n(&cb->drain_heartbeat_ns, __ATOMIC_ACQUIRE);
+    while (now_ns > prev) {
+        if (__atomic_compare_exchange_n(&cb->drain_heartbeat_ns, &prev, now_ns,
+                                        0, __ATOMIC_RELEASE, __ATOMIC_ACQUIRE)) {
+            break;
+        }
+    }
+    (void)prev; }
 static inline uint64_t cb_get_heartbeat_ns(ControlBlock* cb) {
     return __atomic_load_n(&cb->drain_heartbeat_ns, __ATOMIC_ACQUIRE);
 }

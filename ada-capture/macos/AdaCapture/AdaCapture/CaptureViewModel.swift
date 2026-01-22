@@ -50,6 +50,16 @@ final class CaptureViewModel: ObservableObject {
         }
     }
 
+    func toggleRecording() {
+        Task {
+            if isSessionActive || isVoiceActive {
+                await stopRecording()
+            } else {
+                await startRecording()
+            }
+        }
+    }
+
     func startSession() {
         guard let daemon else { return }
         let output = outputPath.isEmpty ? nil : outputPath
@@ -132,6 +142,88 @@ final class CaptureViewModel: ObservableObject {
                     statusMessage = "Start voice failed: \(error)"
                 }
             }
+        }
+    }
+
+    private func startRecording() async {
+        guard let daemon else { return }
+        let output = outputPath.isEmpty ? nil : outputPath
+        let args = parseArgs(argsText)
+        let (binary, pid) = resolveStartMode()
+
+        if mode == .attach && pid == nil {
+            statusMessage = "Invalid PID"
+            return
+        }
+
+        var sessionStarted = false
+
+        do {
+            statusMessage = "Starting session..."
+            let info = try daemon.startSession(binary: binary, pid: pid, args: args, output: output)
+            sessionStarted = true
+            isSessionActive = true
+            traceSessionPath = info.trace_session
+
+            statusMessage = "Starting voice..."
+            try await ensureMicrophoneAccess()
+            let voiceInfo = try daemon.startVoice()
+            do {
+                try startLocalVoiceRecording(at: voiceInfo.voice_path)
+            } catch {
+                let _ = try? daemon.stopVoice()
+                throw error
+            }
+
+            isVoiceActive = voiceInfo.is_voice_active
+            voiceStartDate = Date()
+            statusMessage = "Recording"
+        } catch {
+            stopLocalVoiceRecording()
+            if sessionStarted {
+                let _ = try? daemon.stopSession()
+            }
+            isSessionActive = false
+            isVoiceActive = false
+            statusMessage = "Start recording failed: \(error)"
+        }
+    }
+
+    private func stopRecording() async {
+        guard let daemon else { return }
+        var voiceError: Error?
+
+        if isVoiceActive {
+            do {
+                statusMessage = "Stopping voice..."
+                stopLocalVoiceRecording()
+                let bundleInfo = try daemon.stopVoice()
+                isVoiceActive = false
+                traceSessionPath = bundleInfo.trace_session
+                let end = Date()
+                let start = voiceStartDate ?? end
+                voiceStartDate = nil
+                bundles.insert(
+                    BundleItem(bundlePath: bundleInfo.bundle_path, startedAt: start, endedAt: end),
+                    at: 0
+                )
+            } catch {
+                voiceError = error
+            }
+        }
+
+        do {
+            statusMessage = "Stopping session..."
+            let info = try daemon.stopSession()
+            isSessionActive = info.is_session_active
+            isVoiceActive = info.is_voice_active
+            if let voiceError {
+                statusMessage = "Stop voice failed: \(voiceError)"
+            } else {
+                statusMessage = "Recording stopped"
+            }
+        } catch {
+            statusMessage = "Stop session failed: \(error)"
         }
     }
 

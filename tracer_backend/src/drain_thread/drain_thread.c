@@ -159,7 +159,7 @@ static void drain_update_control_block(DrainThread* drain) {
     }
 
     uint64_t now_ns = monotonic_now_ns();
-    cb_set_heartbeat_ns(drain->control_block, now_ns);
+    cb_update_heartbeat_ns(drain->control_block, now_ns);
 
     if (cb_get_registry_ready(drain->control_block) == 0) {
         return;
@@ -1244,7 +1244,7 @@ void drain_thread_set_control_block(DrainThread* drain, ControlBlock* control_bl
         uint64_t now_ns = monotonic_now_ns();
         drain->last_registry_tick_ns = now_ns;
         drain->warmup_ticks = 0;
-        cb_set_heartbeat_ns(control_block, now_ns);
+        cb_update_heartbeat_ns(control_block, now_ns);
     }
 }
 

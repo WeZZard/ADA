@@ -222,22 +222,6 @@ Debugging steps:
    - Atomic operations for synchronization
    - Cache-line aligned for performance
 
-## MANDATORY: Quality Requirements
-
-**100% Mandatory - No Exceptions:**
-
-1. Build Success: ALL components must build
-2. Test Success: ALL tests must pass
-3. Test Coverage: 100% coverage on changed lines
-4. Integration Score: 100/100
-
-**No Bypass Mechanisms:**
-
-- NO `git commit --no-verify`
-- NO ignoring failing tests
-- NO reducing coverage requirements
-- NO "temporary" workarounds
-
 ## Development Model
 
 ### Iteration Workflow (MANDATORY for planners)
