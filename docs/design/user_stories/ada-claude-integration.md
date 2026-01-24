@@ -6,6 +6,70 @@ This document analyzes two architectural options for how Claude Code communicate
 
 ---
 
+## V1 Decision: Validation-First Approach
+
+### Hypothesis to Validate
+
+**"Multimodal capture (voice + screen + trace) improves AI-assisted debugging efficiency"**
+
+### V1 Architecture
+
+```
+ADA (Simple Capture)              Claude Code (Multimodal Analysis)
+┌──────────────────────┐          ┌────────────────────────────────┐
+│ Files on disk:       │          │ Task Tool + Claude Multimodal: │
+│ • voice.wav          │ ───────> │ • Process audio directly       │
+│ • screen.mp4         │  paths   │ • Analyze video frames         │
+│ • trace/*.atf        │          │ • Read trace events            │
+│ • manifest.json      │          │ • Correlate & reason           │
+└──────────────────────┘          └────────────────────────────────┘
+```
+
+### V1 Trade-off
+
+| Aspect | V1 Choice | Trade-off |
+|--------|-----------|-----------|
+| Data control | Low | Claude parses raw files |
+| Precision | Lower | May miss subtle details |
+| Engineering | Minimal | Fast to build |
+| Purpose | **Validate hypothesis** | Learn before investing |
+
+### V1 Constraints
+
+- **Entry-only tracing**: No function exit events (no profiling capability)
+- **No stack unwinding**: Cannot reconstruct call stack
+- **No exception detection**: Inline hooks can't catch exceptions across languages
+
+### V1 Core Value
+
+Not profiling. Not performance analysis.
+
+**Correlation**: What code was running when the user observed the problem?
+
+```
+Voice: "I tapped login and it froze"
+Screen: [shows button press, then freeze]
+Trace: onTap() → validateInput() → fetchUser() → ...
+         ↑
+    "What happened here?"
+```
+
+### V1 Skills
+
+| Skill | ADA Usage |
+|-------|-----------|
+| `/build` | None - compiler output only |
+| `/run` | Capture voice + screen + trace |
+| `/analyze` | Task tool with multimodal prompt |
+
+### V1 Learnings Will Inform
+
+- What data is most useful for debugging?
+- Where does Claude struggle with raw data?
+- What needs structured formatting for V2/Option B?
+
+---
+
 ## Part 1: Discussion Chronology
 
 ### 1.1 The Initial Question
