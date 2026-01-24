@@ -1,4 +1,4 @@
-# E2: Session Management Layer
+# E3: Session Management Layer
 
 ## Layer
 
