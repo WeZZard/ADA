@@ -7,7 +7,7 @@ description: "Launch application with ADA tracing - captures execution traces, v
 
 ## Purpose
 
-Launch an application with ADA tracing enabled, capturing execution traces, optional voice narration, and optional screen recording for later analysis.
+Launch an application with ADA tracing enabled, capturing execution traces, voice narration, and screen recording for later analysis. Screen and voice recording are enabled by default and can be disabled with `--no-screen` and `--no-voice` flags.
 
 ## Workflow
 
@@ -34,7 +34,19 @@ swift build -c release
 
 ### Step 3: Start Capture
 
-Command: ada capture start <binary_path>
+```bash
+# Full capture (trace + screen + voice) - default
+ada capture start <binary_path>
+
+# Trace + screen only (no voice)
+ada capture start <binary_path> --no-voice
+
+# Trace + voice only (no screen)
+ada capture start <binary_path> --no-screen
+
+# Trace only (no screen or voice)
+ada capture start <binary_path> --no-screen --no-voice
+```
 
 ### Step 4: Provide Feedback
 

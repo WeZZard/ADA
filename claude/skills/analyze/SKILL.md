@@ -75,6 +75,6 @@ Deliver structured analysis:
 ## Error Handling
 
 - **No session found**: Guide user to use `ada:run` skill first
-- **No voice recording**: Analyze using events and screenshots only
-- **No screen recording**: Analyze using events and transcript only
+- **No voice recording**: Session captured with `--no-voice`; analyze using events and screenshots
+- **No screen recording**: Session captured with `--no-screen`; analyze using events and transcript
 - **Empty trace**: Check if capture was running during issue

@@ -27,13 +27,13 @@ pub enum CaptureCommands {
         /// Path to the binary to trace
         binary: String,
 
-        /// Enable screen recording
-        #[arg(long)]
-        screen: bool,
+        /// Disable screen recording (enabled by default)
+        #[arg(long = "no-screen")]
+        no_screen: bool,
 
-        /// Enable voice recording (enables detail lane while active)
-        #[arg(long)]
-        voice: bool,
+        /// Disable voice recording (enabled by default)
+        #[arg(long = "no-voice")]
+        no_voice: bool,
 
         /// Include microphone audio in screen recording
         #[arg(long, default_value_t = false)]
@@ -57,12 +57,13 @@ pub enum CaptureCommands {
     },
 }
 
+// LCOV_EXCL_START - Entry point delegates to start_capture which requires live hardware
 pub fn run(cmd: CaptureCommands) -> anyhow::Result<()> {
     match cmd {
         CaptureCommands::Start {
             binary,
-            screen,
-            voice,
+            no_screen,
+            no_voice,
             screen_audio,
             audio_device,
             pre_roll_ms,
@@ -70,8 +71,8 @@ pub fn run(cmd: CaptureCommands) -> anyhow::Result<()> {
             args,
         } => start_capture(
             &binary,
-            screen,
-            voice,
+            !no_screen,
+            !no_voice,
             screen_audio,
             audio_device.as_deref(),
             pre_roll_ms,
@@ -80,6 +81,7 @@ pub fn run(cmd: CaptureCommands) -> anyhow::Result<()> {
         ),
     }
 }
+// LCOV_EXCL_STOP
 
 #[derive(Serialize)]
 struct BundleManifest {
