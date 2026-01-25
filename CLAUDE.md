@@ -279,6 +279,10 @@ Example: `ring_buffer__overflow__then_wraps_around`
    - macOS: Run `./utils/sign_binary.sh <path>` for SSH/CI tracing
    - Linux: May need ptrace capabilities
    - See `docs/definitions/constraints/` for platform constraints
+6. **CLI Command Syntax in `claude/`**: All CLI examples in `claude/commands/*.md` MUST match the current `ada` CLI implementation
+   - Verify syntax with `./target/release/ada <subcommand> --help`
+   - When CLI flags change, update corresponding command documentation
+   - Reference: `ada-cli/src/` for authoritative command definitions
 
 ## Focus Areas
 
