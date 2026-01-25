@@ -102,4 +102,4 @@ Task tool with screenshot + events + user description → diagnosis
 
 ## Status
 
-Not started
+**Complete** - Time filtering (`--since-ns`, `--until-ns`), media queries (`screenshot`, `transcribe`), and capabilities detection implemented in ada-cli. Pipeline orchestration and synthesis prompts belong in E5/E6 skill layer.
