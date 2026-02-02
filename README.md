@@ -54,10 +54,13 @@ After the analysis done it will trigger Claude Code's plan mode to build the fix
 
 ### Agent-first Debugging Architecture
 
-**Recall** records a single, shareable timeline of what you saw, what you said, and what your program did.
+**Recall** records a layered, shareable timeline of what you saw, what you said, and what your program did.
 
-It’s designed to give AI agents *evidence* (not guesses): a tight, time-aligned bundle they can summarize, search, and cite.
-Under the hood, a low-overhead “flight recorder” captures lightweight signals continuously and preserves rich details only when needed.
+It’s designed to give AI agents *evidence* (not guesses): a tight, time-aligned bundle they can summarize, search, and cite, including:
+
+- **Screen Recording**: Captures a high-fidelity video of the user's screen.
+- **Voice Waveform**: Records the user's voice activity.
+- **Function Active Records**: Provides detailed records of function active.
 
 ![Explaining Recall](README.md.d/tracks.png "Timeline showing synchronized screen recording, voice waveform, and function trace logs aligned by a red playhead timestamp.")
 
