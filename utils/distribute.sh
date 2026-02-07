@@ -156,13 +156,13 @@ if [[ "$FORM" == "plugin" ]]; then
 {
   "name": "walkthrough",
   "version": "$VERSION",
-  "description": "ADA - AI-powered application debugging assistant with dual-lane flight recorder",
+  "description": "Walk through the bug, let AI find the cause",
   "author": {
     "name": "WeZZard",
     "url": "https://github.com/WeZZard"
   },
-  "repository": "https://github.com/agentic-infra/ada",
-  "homepage": "https://github.com/agentic-infra/ada",
+  "repository": "https://github.com/WeZZard/ADA",
+  "homepage": "https://github.com/WeZZard/ADA",
   "license": "MIT",
   "keywords": [
     "debugging",

@@ -146,9 +146,8 @@ If you want to support the project’s LLM-related costs (docs, examples, and ev
 
 **Contributable Tokens:**
 
-- Anthropic Claude 4.5 series
-- OpenAI GPT-5.2
-- Kimi K2.5
+- Anthropic Claude
+- OpenAI GPT
 
 ## License
 
@@ -160,7 +159,7 @@ For issues or questions, please refer to the documentation or create an issue in
 
 ## Quality Metrics
 
-![Quality Gate](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/WeZZard/Recall/main/.github/badges/integration-score.json)
-![Rust Coverage](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/WeZZard/Recall/main/.github/badges/rust-coverage.json)
-![C/C++ Coverage](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/WeZZard/Recall/main/.github/badges/cpp-coverage.json)
-![Build Status](https://github.com/WeZZard/Recall/workflows/Quality%20Gate%20CI/badge.svg)
+![Quality Gate](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/WeZZard/walkthrough/main/.github/badges/integration-score.json)
+![Rust Coverage](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/WeZZard/walkthrough/main/.github/badges/rust-coverage.json)
+![C/C++ Coverage](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/WeZZard/walkthrough/main/.github/badges/cpp-coverage.json)
+![Build Status](https://github.com/WeZZard/walkthrough/workflows/Quality%20Gate%20CI/badge.svg)
